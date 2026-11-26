@@ -24,29 +24,25 @@ jobs:
       - name: Initialize npm and install Capacitor
         run: |
           npm init -y
-          npm install @capacitor/core@6.2.0 @capacitor/cli@6.2.0
+          npm install @capacitor/core@6.2.0 @capacitor/cli@6.2.0 @capacitor/android@6.2.0
           npx cap init "AI Navigator" com.example.ainavigator
 
       - name: Configure capacitor.config.json
-        run: |
-          echo '{
-            "appId": "com.example.ainavigator",
-            "appName": "AI Navigator",
-            "webDir": "www",
-            "server": {
-              "androidScheme": "https"
-            }
-          }' > capacitor.config.json
+        run: echo '{ "appId": "com.example.ainavigator", "appName": "AI Navigator", "webDir": "www", "server": { "androidScheme": "https" } }' > capacitor.config.json
 
-      - name: Add Android platform
+      - name: Sync Capacitor Android
         run: |
-          npx cap add android
+          npx cap sync android
 
       - name: Configure Android permissions
         run: |
           if [ -f android/app/src/main/AndroidManifest.xml ]; then
-            sed -i '/application>/i \  \u003cuses-permission android:name="android.permission.INTERNET" /\u003e' android/app/src/main/AndroidManifest.xml
-            sed -i '/application>/i \  \u003cuses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /\u003e' android/app/src/main/AndroidManifest.xml
+            if ! grep -q "android.permission.INTERNET" android/app/src/main/AndroidManifest.xml; then
+              sed -i '/manifest>/i \  \u003cuses-permission android:name="android.permission.INTERNET" /\u003e' android/app/src/main/AndroidManifest.xml
+            fi
+            if ! grep -q "android.permission.ACCESS_NETWORK_STATE" android/app/src/main/AndroidManifest.xml; then
+              sed -i '/manifest>/i \  \u003cuses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /\u003e' android/app/src/main/AndroidManifest.xml
+            fi
           fi
 
       - name: Set up Java 17
