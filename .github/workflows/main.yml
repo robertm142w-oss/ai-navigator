@@ -29,16 +29,14 @@ jobs:
 
       - name: Configure capacitor.config.json
         run: |
-          cat > capacitor.config.json
-          {
+          echo '{
             "appId": "com.example.ainavigator",
             "appName": "AI Navigator",
             "webDir": "www",
             "server": {
               "androidScheme": "https"
             }
-          }
-          EOF
+          }' > capacitor.config.json
 
       - name: Add Android platform
         run: |
