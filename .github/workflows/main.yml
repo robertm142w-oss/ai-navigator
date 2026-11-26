@@ -45,11 +45,14 @@ jobs:
           python3 -c "
           import xml.etree.ElementTree as ET
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
+          ET.register_namespace('android', 'http://schemas.android.com/apk/res/android')
           tree = ET.parse(manifest_path)
           root = tree.getroot()
           for perm in ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION']:
-              child = ET.SubElement(root, 'uses-permission')
-              child.set('android:name', 'android.permission.' + perm)
+              key = '{http://schemas.android.com/apk/res/android}name'
+              value = 'android.permission.' + perm
+              if not any(p.get(key) == value for p in root.findall('uses-permission')):
+                  ET.SubElement(root, 'uses-permission', {key: value})
           tree.write(manifest_path, encoding='UTF-8', xml_declaration=True)
           "
 
