@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "budget": 0,
   "agents": [
     {
@@ -44,7 +44,25 @@
     "No paid resources or unauthorized access",
     "Do not execute downloaded code outside isolated tests",
     "No automatic deployment or access to credentials",
-    "Preserve attribution and working builds"
+    "Preserve attribution and working builds",
+    "Search existing candidates and reusable implementations before writing new components; prefer complete tested projects, including abandoned projects only when safe and maintainable.",
+    "Record a specific blocker, integration effort, and verification evidence before adoption.",
+    "Keep navigation redesign and speaker recognition deferred."
   ],
-  "status": "Policy only; autonomous research runners not implemented"
+  "status": "Policy only; autonomous research runners not implemented",
+  "discoveryPriority": [
+    "Current build blockers and reproducible Android packaging",
+    "On-device inference and model compatibility",
+    "Isolated automated code testing",
+    "Agent orchestration and concurrency",
+    "Persistent memory and optional authorized cloud synchronization",
+    "Research and resource discovery"
+  ],
+  "selectionOrder": [
+    "Demonstrated fit to a current blocker",
+    "Reproducible working example and tests",
+    "Verified compatible license and dependencies",
+    "Zero incremental cost and minimal user setup",
+    "Security and maintenance viability"
+  ]
 }
