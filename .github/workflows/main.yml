@@ -21,16 +21,19 @@ jobs:
           mkdir -p www
           cp index.html www/index.html
 
-      - name: Initialize npm and install Capacitor
+      - name: Initialize npm and install Capacitor packages
         run: |
           npm init -y
           npm install @capacitor/core@6.2.0 @capacitor/cli@6.2.0 @capacitor/android@6.2.0
+
+      - name: Initialize Capacitor project
+        run: |
           npx cap init "AI Navigator" com.example.ainavigator
 
-      - name: Configure capacitor.config.json
-        run: echo '{ "appId": "com.example.ainavigator", "appName": "AI Navigator", "webDir": "www", "server": { "androidScheme": "https" } }' > capacitor.config.json
+      - name: Create capacitor.config.json
+        run: echo '{"appId":"com.example.ainavigator","appName":"AI Navigator","webDir":"www","server":{"androidScheme":"https"}}' > capacitor.config.json
 
-      - name: Sync Capacitor Android
+      - name: Sync Capacitor to add Android platform
         run: |
           npx cap sync android
 
