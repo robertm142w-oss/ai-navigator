@@ -31,7 +31,7 @@
         <button id="start-btn">Start Navigation & Wake Lock</button>
         <button id="unit-toggle">Unit: Meters</button>
         <label><input type="checkbox" id="teamMode" style="width:auto"> Development team mode</label>
-        <button type="button" onclick="try { localStorage.removeItem(memoryKey); document.getElementById(\'response\').textContent = \'Team memory cleared.\'; } catch { document.getElementById(\'response\').textContent = \'Storage unavailable.\'; }">Clear team memory</button>
+        <button type="button" id="clearMemory">Clear team memory</button>
         <button id="aiSend" onclick="sendMessage()">Send to AI</button>
     </div>
     <pre id="response" style="white-space:pre-wrap;text-align:left;overflow-wrap:anywhere"></pre>
@@ -100,6 +100,10 @@
         const memoryKey = 'ai-navigator-team-v1';
         function readMemory() { try { const v = JSON.parse(localStorage.getItem(memoryKey) || '[]'); return Array.isArray(v) ? v.slice(-8) : []; } catch { return []; } }
         function saveMemory(entry) { try { localStorage.setItem(memoryKey, JSON.stringify([...readMemory(), entry].slice(-8))); return true; } catch { return false; } }
+        document.getElementById('clearMemory').onclick = () => {
+            if (document.getElementById('aiSend').disabled) return;
+            try { localStorage.removeItem(memoryKey); document.getElementById('response').textContent = 'Team memory cleared.'; } catch { document.getElementById('response').textContent = 'Storage unavailable.'; }
+        };
         let generator;
         async function sendMessage() {
             const prompt = document.getElementById('aiPrompt').value.trim();
