@@ -29,7 +29,7 @@ jobs:
           npm install @capacitor/core@6.2.0 @capacitor/cli@6.2.0 @capacitor/android@6.2.0
 
       - name: Initialize Capacitor project
-        run:  px cap init "AI Navigator" com.example.ainavigator
+        run: npx cap init "AI Navigator" com.example.ainavigator
 
       - name: Create capacitor.config.json
         run: echo '{"appId":"com.example.ainavigator","appName":"AI Navigator","webDir":"www","server":{"androidScheme":"https"}}' > capacitor.config.json
