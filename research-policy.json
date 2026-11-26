@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "budget": 0,
+  "agents": [
+    {
+      "id": "ai-research",
+      "scope": "Local models, reasoning and agent frameworks"
+    },
+    {
+      "id": "code-hunter",
+      "scope": "Complete reusable open-source projects including abandoned projects"
+    },
+    {
+      "id": "resource-hunter",
+      "scope": "Free compute, storage and development tools"
+    },
+    {
+      "id": "optimization",
+      "scope": "Performance and memory improvements"
+    },
+    {
+      "id": "integration",
+      "scope": "Compatibility and integration assessment"
+    },
+    {
+      "id": "security-review",
+      "scope": "License, provenance, dependency and security review"
+    }
+  ],
+  "candidateRequiredFields": [
+    "source_url",
+    "revision",
+    "license",
+    "license_evidence",
+    "cost",
+    "maintenance_status",
+    "compatibility",
+    "security_review",
+    "test_status"
+  ],
+  "rules": [
+    "Independent discovery; deduplicate by source and revision",
+    "Reject unknown or incompatible licenses",
+    "No paid resources or unauthorized access",
+    "Do not execute downloaded code outside isolated tests",
+    "No automatic deployment or access to credentials",
+    "Preserve attribution and working builds"
+  ],
+  "status": "Policy only; autonomous research runners not implemented"
+}
