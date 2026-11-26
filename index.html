@@ -1,0 +1,215 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Navigator</title>
+<style>
+body {
+  background: #101820;
+  color: white;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  padding: 20px;
+}
+h1 { color: #00e5ff; }
+input, select, button {
+  box-sizing: border-box;
+  width: 95%;
+  padding: 14px;
+  margin: 6px;
+  border: none;
+  border-radius: 10px;
+  font-size: 17px;
+}
+button {
+  background: #00e5ff;
+  color: black;
+  font-weight: bold;
+}
+#arrow {
+  font-size: 130px;
+  color: #00ff99;
+  transition: transform 0.3s;
+  margin: 25px auto;
+  width: 160px;
+  line-height: 160px;
+}
+#distance {
+  font-size: 36px;
+  font-weight: bold;
+}
+#status { color: #ffdd66; }
+#stop { background: #ff6666; }
+</style>
+</head>
+<body>
+
+<h1>AI NAVIGATOR</h1>
+<p>Live Directional Navigation</p>
+
+<input id="lat" type="number" step="any"
+placeholder="Destination latitude">
+
+<input id="lon" type="number" step="any"
+placeholder="Destination longitude">
+
+<select id="units" onchange="update()">
+<option value="feet">Feet</option>
+<option value="meters">Meters</option>
+</select>
+
+<button onclick="start()">Start Navigation</button>
+
+<div id="arrow">↑</div>
+<div id="distance">--</div>
+<p id="direction">Waiting for location</p>
+<p id="status">Ready</p>
+
+<button id="stop" onclick="stop()">Stop Navigation</button>
+
+<p>Direct bearing only. Not road routing.</p>
+
+<script>
+let watch = null;
+let position = null;
+let heading = null;
+let compass = null;
+let target = null;
+
+const rad = x => x * Math.PI / 180;
+const deg = x => x * 180 / Math.PI;
+const norm = x => (x % 360 + 360) % 360;
+
+function status(message) {
+  document.getElementById("status").textContent = message;
+}
+
+function orientation(e) {
+  if (typeof e.webkitCompassHeading === "number") {
+    compass = norm(e.webkitCompassHeading);
+  } else if (e.absolute && e.alpha !== null) {
+    compass = norm(360 - e.alpha);
+  }
+  update();
+}
+
+async function start() {
+  const a = document.getElementById("lat").value;
+  const b = document.getElementById("lon").value;
+  const lat = Number(a);
+  const lon = Number(b);
+
+  if (!a || !b || !Number.isFinite(lat) ||
+      !Number.isFinite(lon) ||
+      Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+    status("Enter valid destination coordinates.");
+    return;
+  }
+
+  if (!navigator.geolocation) {
+    status("Location tracking unavailable.");
+    return;
+  }
+
+  stop();
+  target = {lat, lon};
+  status("Getting your location...");
+
+  if (typeof DeviceOrientationEvent !== "undefined") {
+    try {
+      if (typeof DeviceOrientationEvent.requestPermission === "function") {
+        await DeviceOrientationEvent.requestPermission();
+      }
+      window.addEventListener("deviceorientationabsolute", orientation);
+      window.addEventListener("deviceorientation", orientation);
+    } catch (e) {}
+  }
+
+  watch = navigator.geolocation.watchPosition(
+    p => {
+      position = p.coords;
+      heading = Number.isFinite(p.coords.heading)
+        ? p.coords.heading : null;
+      status("Location active • Accuracy: " +
+        Math.round(p.coords.accuracy) + " m");
+      update();
+    },
+    e => status("Location error: " + e.message +
+      ". Check permissions and HTTPS."),
+    {
+      enableHighAccuracy: true,
+      maximumAge: 1000,
+      timeout: 20000
+    }
+  );
+}
+
+function update() {
+  if (!position || !target) return;
+
+  const a = rad(position.latitude);
+  const b = rad(target.lat);
+  const dLat = b - a;
+  const dLon = rad(target.lon - position.longitude);
+
+  const h = Math.sin(dLat / 2) ** 2 +
+    Math.cos(a) * Math.cos(b) *
+    Math.sin(dLon / 2) ** 2;
+
+  const meters = 6371000 * 2 *
+    Math.asin(Math.sqrt(Math.min(1, h)));
+
+  const y = Math.sin(dLon) * Math.cos(b);
+  const x = Math.cos(a) * Math.sin(b) -
+    Math.sin(a) * Math.cos(b) * Math.cos(dLon);
+
+  const bearing = norm(deg(Math.atan2(y, x)));
+
+  const reference = compass ?? heading ?? 0;
+  const rotation = norm(bearing - reference);
+
+  document.getElementById("arrow").style.transform =
+    "rotate(" + rotation + "deg)";
+
+  const feet = document.getElementById("units").value === "feet";
+
+  document.getElementById("distance").textContent =
+    Math.round(feet ? meters * 3.28084 : meters) +
+    (feet ? " ft" : " m");
+
+  const directions = ["N","NE","E","SE","S","SW","W","NW"];
+  const direction = directions[Math.round(bearing / 45) % 8];
+
+  document.getElementById("direction").textContent =
+    "Destination: " + direction + " " +
+    Math.round(bearing) + "°" +
+    (compass === null && heading === null
+      ? " • North-relative" : "");
+
+  if (meters <= Math.max(5, position.accuracy)) {
+    document.getElementById("direction").textContent =
+      "Near destination";
+  }
+}
+
+function stop() {
+  if (watch !== null) {
+    navigator.geolocation.clearWatch(watch);
+  }
+  watch = null;
+  position = null;
+  heading = null;
+  compass = null;
+  target = null;
+  window.removeEventListener("deviceorientationabsolute", orientation);
+  window.removeEventListener("deviceorientation", orientation);
+  document.getElementById("arrow").style.transform = "rotate(0deg)";
+  document.getElementById("distance").textContent = "--";
+  document.getElementById("direction").textContent = "Navigation stopped";
+  status("Stopped");
+}
+</script>
+</body>
+</html>
