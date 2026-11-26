@@ -1,0 +1,38 @@
+name: Android debug APK
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/android-debug.yml
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: node tests/ai-smoke.cjs
+      - run: node scripts/prepare-web.cjs
+      - run: |
+          npm init -y
+          npm install --save-exact @capacitor/core@7.4.3 @capacitor/cli@7.4.3 @capacitor/android@7.4.3
+          npx cap init "AI Navigator Test" com.example.ainavigator.test --web-dir www
+          npx cap add android
+          npx cap sync android
+      - run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-navigator-test-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
