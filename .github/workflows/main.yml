@@ -16,18 +16,20 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Create Capacitor project
+      - name: Create www directory and copy index.html
         run: |
           mkdir -p www
           cp index.html www/index.html
+
+      - name: Initialize npm and install Capacitor
+        run: |
           npm init -y
           npm install @capacitor/core@6.2.0 @capacitor/cli@6.2.0
           npx cap init "AI Navigator" com.example.ainavigator
 
-      - name: Configure capacitor.config
+      - name: Configure capacitor.config.json
         run: |
-          cat > capacitor.config.json | tee capacitor.config.json > /dev/null
-          cat >> capacitor.config.json
+          cat > capacitor.config.json
           {
             "appId": "com.example.ainavigator",
             "appName": "AI Navigator",
@@ -44,9 +46,9 @@ jobs:
 
       - name: Configure Android permissions
         run: |
-          # Update AndroidManifest.xml with permissions
           if [ -f android/app/src/main/AndroidManifest.xml ]; then
-            sed -i '/manifest>/a\\n  \u003cuses-permission android:name="android.permission.INTERNET" /\u003e\\n  \u003cuses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /\u003e' android/app/src/main/AndroidManifest.xml
+            sed -i '/application>/i \  \u003cuses-permission android:name="android.permission.INTERNET" /\u003e' android/app/src/main/AndroidManifest.xml
+            sed -i '/application>/i \  \u003cuses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /\u003e' android/app/src/main/AndroidManifest.xml
           fi
 
       - name: Set up Java 17
@@ -54,9 +56,6 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
 
       - name: Build debug APK
         run: |
