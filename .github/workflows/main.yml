@@ -44,13 +44,18 @@ jobs:
         run: |
           python3 -c "
           import xml.etree.ElementTree as ET
+          import os
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
+          if not os.path.exists(manifest_path):
+              exit(1)
           tree = ET.parse(manifest_path)
           root = tree.getroot()
           ns = {'android': 'http://schemas.android.com/apk/res/android'}
-          uses_permission = ET.SubElement(root, 'uses-permission', {'android:name': 'android.permission.ACCESS_FINE_LOCATION'})
-          uses_permission2 = ET.SubElement(root, 'uses-permission', {'android:name': 'android.permission.ACCESS_COARSE_LOCATION'})
-          tree.write(manifest_path, encoding='utf-8', xml_declaration=True)
+          # Add permissions before the application tag
+          for perm_name in ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION']:
+              child = ET.SubElement(root, 'uses-permission')
+              child.set('android:name', 'android.permission.' + perm_name)
+          tree.write(manifest_path, encoding='UTF-8', xml_declaration=True)
           "
 
       - name: Set up Java 17
