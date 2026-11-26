@@ -26,17 +26,13 @@
     </div>
     <div class="controls">
         <input type="text" id="userInput" placeholder="Destination (Lat, Lon)">
-        <select id="modelSelect">
-            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-            <option value="gpt-4">GPT-4</option>
-            <option value="claude-3-opus-20240229">Claude 3 Opus</option>
-            <option value="gemini-pro">Gemini Pro</option>
-        </select>
+        <textarea id="aiPrompt" rows="4" maxlength="8000" placeholder="Ask AI or request code"></textarea>
+        <p>First use downloads a large model over the internet. Replies run locally. Generated code is not executed.</p>
         <button id="start-btn">Start Navigation & Wake Lock</button>
         <button id="unit-toggle">Unit: Meters</button>
-        <button onclick="sendMessage()">Send to AI</button>
+        <button id="aiSend" onclick="sendMessage()">Send to AI</button>
     </div>
-    <div id="response"></div>
+    <pre id="response" style="white-space:pre-wrap;text-align:left;overflow-wrap:anywhere"></pre>
     <div id="status">Waiting for sensors...</div>
     <script>
         let target = { lat: 0, lon: 0 }, currentPos = null, heading = 0, useMetric = true, lastSensorUpdate = Date.now(), wakeLock = null;
@@ -99,14 +95,31 @@
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         }
         
+        let generator;
         async function sendMessage() {
-            const i = document.getElementById('userInput').value, m = document.getElementById('modelSelect').value, r = document.getElementById('response');
-            r.innerHTML = 'Thinking...';
+            const prompt = document.getElementById('aiPrompt').value.trim();
+            const output = document.getElementById('response');
+            const button = document.getElementById('aiSend');
+            if (!prompt || button.disabled) return;
+            button.disabled = true;
             try {
-                const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: i, model: m }) });
-                const d = await res.json();
-                r.innerHTML = d.reply;
-            } catch (e) { r.innerHTML = 'AI Error'; }
+                if (!generator) {
+                    output.textContent = 'Loading local AI model...';
+                    const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.2');
+                    env.allowLocalModels = false;
+                    env.backends.onnx.wasm.numThreads = 1;
+                    generator = await pipeline('text-generation', 'onnx-community/Qwen2.5-0.5B-Instruct', {
+                        device: 'wasm', dtype: 'q4',
+                        progress_callback: p => { if (p.status === 'progress') output.textContent = 'Downloading ' + p.file + ' ' + Math.round(p.progress || 0) + '%'; }
+                    });
+                }
+                output.textContent = 'Generating locally...';
+                const result = await generator([{role:'system',content:'You are AI Navigator, a helpful assistant. For programming requests propose code and tests. Never claim code has been executed.'},{role:'user',content:prompt}], {max_new_tokens:256,do_sample:false});
+                const reply = result[0].generated_text;
+                output.textContent = Array.isArray(reply) ? reply[reply.length-1].content : String(reply);
+            } catch (e) {
+                output.textContent = 'Local AI error: ' + String(e.message || e);
+            } finally { button.disabled = false; }
         }
     </script>
 </body>
