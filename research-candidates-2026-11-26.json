@@ -1,0 +1,61 @@
+{
+  "status": "Discovery only; licenses reported by upstream, exact revisions and dependency licenses pending; no code imported or tested",
+  "candidates": [
+    {
+      "url": "https://github.com/sakurablush/zeroagent-studio",
+      "license": "MIT",
+      "purpose": "browser tools and workflows",
+      "revision": null,
+      "test_status": "not tested",
+      "cost": "source available without purchase"
+    },
+    {
+      "url": "https://github.com/agentary-ai/agentary-js",
+      "license": "MIT",
+      "purpose": "agent orchestration and memory",
+      "revision": null,
+      "test_status": "not tested",
+      "cost": "source available without purchase"
+    },
+    {
+      "url": "https://github.com/Codelessly/BrowserAgent",
+      "license": "MIT",
+      "purpose": "local inference",
+      "revision": null,
+      "test_status": "not tested",
+      "cost": "source available without purchase"
+    },
+    {
+      "url": "https://github.com/huggingface/transformers.js",
+      "license": "Apache-2.0",
+      "purpose": "existing inference engine",
+      "revision": null,
+      "test_status": "not tested",
+      "cost": "source available without purchase"
+    },
+    {
+      "url": "https://github.com/jagenjo/litegraph.js",
+      "license": "MIT",
+      "purpose": "workflow graph",
+      "revision": null,
+      "test_status": "not tested",
+      "cost": "source available without purchase"
+    },
+    {
+      "url": "https://github.com/microsoft/autogen",
+      "license": "MIT / CC-BY-4.0",
+      "purpose": "archived; reference only",
+      "revision": null,
+      "test_status": "not tested",
+      "cost": "source available without purchase"
+    },
+    {
+      "url": "https://github.com/janstuemmel/nots",
+      "license": "MIT",
+      "purpose": "sandbox prototype; upstream lacks tests",
+      "revision": null,
+      "test_status": "not tested",
+      "cost": "source available without purchase"
+    }
+  ]
+}
