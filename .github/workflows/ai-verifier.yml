@@ -1,0 +1,25 @@
+name: AI Core Verifier
+on:
+  push:
+    branches: [ai-readiness]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run bounded mocked AI orchestration tests
+        run: timeout 60s node tests/ai-smoke.cjs
+      - name: Run navigation regression tests
+        run: timeout 60s node tests/navigation.test.cjs
+      - name: Record verification scope
+        if: always()
+        run: echo 'These checks do not establish real model inference or Android runtime compatibility.' >> "$GITHUB_STEP_SUMMARY"
