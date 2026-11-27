@@ -62,11 +62,43 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Restore permanent signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.NAVIGATOR_KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.NAVIGATOR_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.NAVIGATOR_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.NAVIGATOR_KEY_PASSWORD }}
+          EXPECTED_CERT: ${{ vars.NAVIGATOR_CERT_SHA256 }}
+        run: |
+          set -eu
+          : "${KEYSTORE_B64:?Missing permanent keystore secret}"
+          : "${STORE_PASSWORD:?Missing store password}"
+          : "${KEY_ALIAS:?Missing key alias}"
+          : "${KEY_PASSWORD:?Missing key password}"
+          : "${EXPECTED_CERT:?Missing approved certificate fingerprint}"
+          umask 077
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/navigator.p12"
+
       - name: Build debug APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
+
+      - name: Sign with permanent key
+        env:
+          STORE_PASSWORD: ${{ secrets.NAVIGATOR_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.NAVIGATOR_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.NAVIGATOR_KEY_PASSWORD }}
+          EXPECTED_CERT: ${{ vars.NAVIGATOR_CERT_SHA256 }}
+        run: |
+          set -eu
+          signer="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          "$signer" sign --ks "$RUNNER_TEMP/navigator.p12" --ks-type PKCS12 --ks-key-alias "$KEY_ALIAS" --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD --out "$RUNNER_TEMP/signed.apk" "$apk"
+          actual=$("$signer" verify --print-certs "$RUNNER_TEMP/signed.apk" | awk -F': ' '/certificate SHA-256 digest:/{print $2; exit}')
+          test "$(printf '%s' "$actual" | tr 'A-F' 'a-f')" = "$(printf '%s' "$EXPECTED_CERT" | tr -d ':' | tr 'A-F' 'a-f')"
+          mv "$RUNNER_TEMP/signed.apk" "$apk"
 
       - name: Verify packaged AI interface
         run: |
