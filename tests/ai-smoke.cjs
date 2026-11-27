@@ -8,16 +8,22 @@ const get=id=>{if(!nodes.has(id))nodes.set(id,{value:'',checked:false,disabled:f
 const ctx=vm.createContext({document:{getElementById:get},localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)}});
 vm.runInContext(script,ctx);
 (async()=>{
-let calls=[];
+let calls=[], workers=[], active=0, peak=0;
+ctx.Blob=class {constructor(parts){this.parts=parts}};
+ctx.URL={createObjectURL:()=> 'mock:worker',revokeObjectURL:()=>{}};
+ctx.setTimeout=setTimeout;ctx.clearTimeout=clearTimeout;
+ctx.Worker=class {constructor(){workers.push(this);active++;peak=Math.max(peak,active)} postMessage(data){calls.push([{content:data.role}]);queueMicrotask(()=>this.onmessage({data:{reply:'mock '+calls.length}}))} terminate(){active--}};
 ctx.mock=async(messages)=>{calls.push(messages);return [{generated_text:[{role:'assistant',content:'mock '+calls.length}]}]};
 vm.runInContext('generator=mock',ctx);
 get('aiPrompt').value='Test task';get('teamMode').checked=true;
 await vm.runInContext('sendMessage()',ctx);
 assert.equal(calls.length,3);
-assert.match(calls[0][0].content,/commander/);
-assert.match(calls[1][0].content,/developer/);
-assert.match(calls[2][0].content,/review/);
-assert.match(get('response').textContent,/Saved locally as unverified/);
+assert.match(calls[0][0].content,/commander/i);
+assert.match(calls[1][0].content,/developer/i);
+assert.match(calls[2][0].content,/review/i);
+assert.match(get('response').textContent,/Commander plan/);
+assert.equal(workers.length,3);assert.equal(peak,2);assert.equal(active,0);
+assert.match(get('aiStatus').textContent,/Both workers completed/);
 assert.equal(JSON.parse(storage.get('ai-navigator-team-v1')).length,1);
 for(let i=0;i<10;i++)vm.runInContext('saveMemory({status:"unverified"})',ctx);
 assert.equal(JSON.parse(storage.get('ai-navigator-team-v1')).length,8);
