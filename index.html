@@ -34,6 +34,7 @@
         <button type="button" id="clearMemory">Clear team memory</button>
         <button id="aiSend" onclick="sendMessage()">Send to AI</button>
     </div>
+    <details><summary>Homeowner — task queue</summary><pre id="taskQueue" style="white-space:pre-wrap;text-align:left"></pre></details>
     <pre id="response" style="white-space:pre-wrap;text-align:left;overflow-wrap:anywhere"></pre>
     <div id="aiStatus" role="status">AI ready to receive a prompt. No sensors required.</div>
     <div id="status" role="status">Navigation idle — tap Start Navigation to enable sensors.</div>
@@ -107,10 +108,22 @@
             if (document.getElementById('aiSend').disabled) return;
             try { localStorage.removeItem(memoryKey); document.getElementById('response').textContent = 'Team memory cleared.'; } catch { document.getElementById('response').textContent = 'Storage unavailable.'; }
         };
+        const queueKey='ai-navigator-queue-v1';
+        function readQueue(){try{const q=JSON.parse(localStorage.getItem(queueKey)||'[]');return Array.isArray(q)?q:[]}catch{return []}}
+        function renderQueue(){const el=document.getElementById('taskQueue');el.textContent=readQueue().map(t=>t.role+' — '+t.status+' (attempt '+t.attempt+')').join('\n')||'No assignments yet.'}
+        function writeQueue(q){try{localStorage.setItem(queueKey,JSON.stringify(q.slice(-60)));renderQueue()}catch{}}
+        writeQueue(readQueue().map(t=>t.status==='running'?{...t,status:'interrupted'}:t));
         let generator;
         async function retryWorker(role,task,progress) {
-            try { return await isolatedAsk(role,task,progress); }
-            catch(e) { return await isolatedAsk(role,task,progress); }
+            const id=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
+            const record={id,role:role.split(':')[0],status:'queued',attempt:0,task:task.slice(0,12000)};
+            writeQueue([...readQueue(),record]);
+            function mark(status,attempt,result){Object.assign(record,{status,attempt,result});writeQueue([...readQueue().filter(t=>t.id!==id),record]);}
+            for(let attempt=1;attempt<=2;attempt++){
+                mark('running',attempt);
+                try {const reply=await isolatedAsk(role,task,progress);mark('completed',attempt,reply.slice(0,4000));return reply;}
+                catch(e){mark(attempt===2?'failed':'retrying',attempt,String(e.message||e));if(attempt===2)throw e;}
+            }
         }
         // Separate model instances in isolated workers; no generated code is executed.
         function isolatedAsk(role, task, progress) {
