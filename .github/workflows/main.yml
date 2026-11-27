@@ -68,6 +68,20 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
+      - name: Verify packaged AI interface
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import Path
+          apk = Path('android/app/build/outputs/apk/debug/app-debug.apk')
+          with zipfile.ZipFile(apk) as z:
+              html = z.read('assets/public/index.html')
+          assert html == Path('index.html').read_bytes(), 'Packaged source mismatch'
+          for marker in [b'id="aiPrompt"', b'id="aiStatus"', b'AI Navigator v0.3.2']:
+              assert marker in html, marker
+          PY
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
