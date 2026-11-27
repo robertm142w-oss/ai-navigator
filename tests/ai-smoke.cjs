@@ -17,6 +17,10 @@ ctx.mock=async(messages)=>{calls.push(messages);return [{generated_text:[{role:'
 vm.runInContext('generator=mock',ctx);
 get('aiPrompt').value='Test task';get('teamMode').checked=true;
 await vm.runInContext('sendMessage()',ctx);
+assert.equal(calls.length,0,'No inference without owner consent');
+assert.match(get('aiStatus').textContent,/Enable AI first/);
+get('ownerEnable').checked=true;
+await vm.runInContext('sendMessage()',ctx);
 assert.equal(calls.length,3);
 assert.match(calls[0][0].content,/commander/i);
 assert.match(calls[1][0].content,/developer/i);
