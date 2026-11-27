@@ -1,0 +1,10 @@
+# Adaptive Intelligence and Resourcefulness Engine (AIRE)
+Status: proposed requirements; runtime implementation and verification pending.
+
+For each authorized user objective, identify current needs, constraints, urgency and success criteria. Compare feasible strategies by time, resource consumption, reliability and functionality; choose the fastest safe option. Parallelize independent work within resource budgets, reuse cached results and vetted dependencies, and adapt when circumstances change. For blockers, diagnose causes, seek lawful supported alternatives, retry bounded recoverable failures, or ask for necessary permission. Never bypass access controls, consent, safety or licensing restrictions.
+
+Prefer zero incremental cost; verify licenses, provenance, attribution and compatibility before reuse. Unknown license or cost requires review; no paid commitments without explicit approval.
+
+Self-development: generate versioned code patches and tests in an isolated workspace, independently review actual patches, run targeted and full regression tests plus held-out core capability checks, compare performance and resource use against baseline, and require authorized approval before deployment. Preserve protected core intelligence, permissions, safety controls, signing identity, data and existing functions. Keep known-good snapshots and rollback. Never execute arbitrary model output in the app or let the model rewrite its own safeguards or approval gates. Record decisions, evidence and failed strategies without storing secrets. Bound time, retries and concurrency; stop safely when no viable authorized path remains.
+
+Acceptance: demonstrate alternative selection after a simulated blocker, user-priority changes, bounded parallel work, license/cost rejection, successful isolated patch review and testing, rejection of regressions and protected-core changes, and rollback. Verify real inference on target hardware separately. Prioritize existing AI core baseline and developer-reviewer feedback before expanding autonomy.
