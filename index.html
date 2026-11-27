@@ -35,7 +35,8 @@
         <button id="aiSend" onclick="sendMessage()">Send to AI</button>
     </div>
     <pre id="response" style="white-space:pre-wrap;text-align:left;overflow-wrap:anywhere"></pre>
-    <div id="status">Waiting for sensors...</div>
+    <div id="aiStatus" role="status">AI ready to receive a prompt. No sensors required.</div>
+    <div id="status" role="status">Navigation idle — tap Start Navigation to enable sensors.</div>
     <script>
         let target = { lat: 0, lon: 0 }, currentPos = null, heading = 0, useMetric = true, lastSensorUpdate = Date.now(), wakeLock = null;
         const arrowContainer = document.getElementById('arrow-container'), statusDiv = document.getElementById('status'), staleWarning = document.getElementById('stale-warning');
@@ -46,7 +47,7 @@
         
         document.getElementById('start-btn').onclick = async () => {
             await requestWakeLock();
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') { await DeviceOrientationEvent.requestPermission(); }
+            try { if (typeof window.DeviceOrientationEvent?.requestPermission === 'function') { await window.DeviceOrientationEvent.requestPermission(); } } catch (e) { statusDiv.textContent = 'Compass permission unavailable; GPS may still work.'; }
             startTracking();
         };
         
@@ -56,7 +57,9 @@
         };
         
         function startTracking() {
-            navigator.geolocation.watchPosition(p => { currentPos = p.coords; lastSensorUpdate = Date.now(); updateNav(); }, null, { enableHighAccuracy: true });
+            if (!navigator.geolocation) { statusDiv.textContent = 'GPS unavailable on this device.'; return; }
+            statusDiv.textContent = 'Navigation: acquiring GPS…';
+            navigator.geolocation.watchPosition(p => { currentPos = p.coords; lastSensorUpdate = Date.now(); updateNav(); }, e => { statusDiv.textContent = 'GPS error: ' + e.message; }, { enableHighAccuracy: true, timeout: 20000 });
             window.addEventListener('deviceorientationabsolute', h, true);
             window.addEventListener('deviceorientation', h, true);
         }
@@ -109,7 +112,10 @@
             const prompt = document.getElementById('aiPrompt').value.trim();
             const output = document.getElementById('response');
             const button = document.getElementById('aiSend');
-            if (!prompt || button.disabled) return;
+            const aiStatus = document.getElementById('aiStatus');
+            if (button.disabled) return;
+            if (!prompt) { aiStatus.textContent = 'Enter a question in the AI prompt box first.'; return; }
+            aiStatus.textContent = 'AI working — GPS and compass not required.';
             button.disabled = true;
             try {
                 if (!generator) {
@@ -141,8 +147,11 @@
                     output.textContent = 'Generating locally...';
                     output.textContent = await ask('You are AI Navigator, a helpful assistant. For programming requests propose code and tests. Never claim code has been executed.', prompt);
                 }
+                aiStatus.textContent = 'AI response complete.';
             } catch (e) {
-                output.textContent = 'Local AI error: ' + String(e.message || e);
+                aiStatus.textContent = 'AI failed — see details below. Navigation sensors are not required.';
+                output.textContent = 'Local AI error: ' + String(e?.message || e) + '\nCheck internet access for the first model download, then retry. If it persists, send this exact error.';
+                generator = undefined;
             } finally { button.disabled = false; }
         }
     </script>
