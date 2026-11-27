@@ -2,8 +2,12 @@ name: Android debug APK
 on:
   workflow_dispatch:
   push:
+    branches: [ai-readiness]
     paths:
       - .github/workflows/android-debug.yml
+      - index.html
+      - scripts/prepare-web.cjs
+      - tests/ai-smoke.cjs
 permissions:
   contents: read
 jobs:
