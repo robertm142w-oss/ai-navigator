@@ -30,6 +30,7 @@
         <p>First use downloads a large model over the internet. Replies run locally. Generated code is not executed.</p>
         <button id="start-btn">Start Navigation & Wake Lock</button>
         <button id="unit-toggle">Unit: Meters</button>
+        <label><input type="checkbox" id="ownerEnable" style="width:auto"> Allow AI model downloads and local processing</label>
         <label><input type="checkbox" id="teamMode" style="width:auto"> Parallel development team mode</label>
         <button type="button" id="clearMemory">Clear team memory</button>
         <button id="aiSend" onclick="sendMessage()">Send to AI</button>
@@ -57,19 +58,22 @@
             e.target.innerText = `Unit: ${useMetric ? 'Meters' : 'Feet'}`;
         };
         
+        let watchId = null;
         function startTracking() {
+            if (watchId !== null) return;
             if (!navigator.geolocation) { statusDiv.textContent = 'GPS unavailable on this device.'; return; }
             statusDiv.textContent = 'Navigation: acquiring GPS…';
-            navigator.geolocation.watchPosition(p => { currentPos = p.coords; lastSensorUpdate = Date.now(); updateNav(); }, e => { statusDiv.textContent = 'GPS error: ' + e.message; }, { enableHighAccuracy: true, timeout: 20000 });
+            watchId = navigator.geolocation.watchPosition(p => { currentPos = p.coords; lastSensorUpdate = Date.now(); updateNav(); }, e => { statusDiv.textContent = 'GPS error: ' + e.message; }, { enableHighAccuracy: true, timeout: 20000 });
             window.addEventListener('deviceorientationabsolute', h, true);
             window.addEventListener('deviceorientation', h, true);
         }
         
         function h(e) {
-            let val = e.webkitCompassHeading || (360 - e.alpha);
-            if (val !== undefined) { heading = heading * 0.8 + val * 0.2; lastSensorUpdate = Date.now(); updateNav(); }
+            const val = e.webkitCompassHeading ?? (e.absolute && Number.isFinite(e.alpha) ? 360 - e.alpha : NaN);
+            if (Number.isFinite(val)) { heading = (heading + 0.2 * ((val - heading + 540) % 360 - 180) + 360) % 360; lastSensorUpdate = Date.now(); updateNav(); }
         }
         
+        let arrowAngle = 0;
         function updateNav() {
             if (!currentPos) return;
             if (currentPos.speed > 1 && currentPos.heading !== null) heading = currentPos.heading;
@@ -78,7 +82,9 @@
             if (!d) { statusDiv.innerText = "Enter Lat, Lon"; return; }
             const b = calcB(currentPos.latitude, currentPos.longitude, d.lat, d.lon);
             const dist = calcD(currentPos.latitude, currentPos.longitude, d.lat, d.lon);
-            const rel = (b - heading + 360) % 360;
+            const desired = (heading - b + 360) % 360;
+            arrowAngle += ((desired - arrowAngle % 360 + 540) % 360 + 360) % 360 - 180;
+            const rel = -arrowAngle;
             arrowContainer.style.transform = `rotateX(60deg) rotateZ(${-rel}deg)`;
             const distStr = useMetric ? `${Math.round(dist)}m` : `${Math.round(dist * 3.28084)}ft`;
             statusDiv.innerText = `Dist: ${distStr} | Heading: ${Math.round(heading)}°`;
@@ -86,7 +92,7 @@
         
         function parseDest(v) {
             const p = v.split(',').map(x => parseFloat(x.trim()));
-            return (p.length === 2 && !isNaN(p[0])) ? { lat: p[0], lon: p[1] } : null;
+            return (p.length === 2 && p.every(Number.isFinite) && Math.abs(p[0]) <= 90 && Math.abs(p[1]) <= 180) ? { lat: p[0], lon: p[1] } : null;
         }
         
         function calcB(la1, lo1, la2, lo2) {
@@ -168,6 +174,7 @@
             const button = document.getElementById('aiSend');
             const aiStatus = document.getElementById('aiStatus');
             if (button.disabled) return;
+            if (!document.getElementById('ownerEnable').checked) { aiStatus.textContent = 'Enable AI first to permit model downloads.'; return; }
             if (!prompt) { aiStatus.textContent = 'Enter a question in the AI prompt box first.'; return; }
             aiStatus.textContent = 'AI working — GPS and compass not required.';
             button.disabled = true;
