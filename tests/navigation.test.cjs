@@ -1,0 +1,11 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const html=fs.readFileSync('index.html','utf8');
+const start=html.indexOf('function parseDest('), end=html.indexOf('const memoryKey',start);
+const ctx=vm.createContext({});
+vm.runInContext(html.slice(start,end),ctx,{timeout:1000});
+test('reject invalid coordinates',()=>{for(const v of ['91,0','0,181','0,no','no,0'])assert.equal(ctx.parseDest(v),null)});
+test('accept valid coordinates',()=>{assert.equal(ctx.parseDest('45,-122').lon,-122)});
+test('distance and bearing',()=>{assert.equal(ctx.calcD(0,0,0,0),0);assert.equal(ctx.calcB(0,0,0,1),90);assert.ok(Math.abs(ctx.calcD(0,0,0,1)-111195)<10)});
