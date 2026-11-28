@@ -38,6 +38,16 @@
                 max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
         }
 
+        .hero { animation: hero-start 720ms cubic-bezier(.2,.72,.24,1) both; }
+        @keyframes hero-start {
+            from { opacity: 0; transform: translateY(10px) scale(.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        #owner-settings { width: min(29rem, calc(100% - 2rem)); max-height: 85dvh; color: inherit; }
+        #owner-settings::backdrop { background: #080e0bcc; }
+        #owner-settings h2 { margin-bottom: .75rem; }
+        #owner-settings .hint + .hint { margin-top: .55rem; }
+        @media (prefers-reduced-motion: reduce) { .hero { animation: none; } }
         .hero { text-align: center; padding-block: 1.75rem 0.25rem; }
         .hero h1 {
             font-family: Georgia, serif;
@@ -225,14 +235,19 @@
             </div>
         </section>
 
-        <details class="surface utility" id="owner-settings">
-            <summary>Owner controls</summary>
+        <button type="button" id="permissions-btn" aria-haspopup="dialog">Permissions &amp; controls</button>
+        <dialog class="surface" id="owner-settings" aria-labelledby="permissions-title">
+            <h2 id="permissions-title">Permissions &amp; controls</h2>
+            <p class="hint">Android asks for microphone, location, or camera access when you use a feature that needs it.</p>
             <label class="check-label"><input type="checkbox" id="ownerEnable"> Allow AI model download and local processing</label>
             <label class="check-label"><input type="checkbox" id="teamMode"> Development team mode</label>
-            <label class="check-label"><input type="checkbox" id="speech-enable"> Read replies aloud</label>
+            <label class="check-label"><input type="checkbox" id="speech-enable" checked> Read replies aloud</label>
             <p class="hint">The optional AI model downloads about 786 MB on first use. AI code proposals require review.</p>
-            <div class="actions"><button type="button" id="clearMemory">Clear team memory</button></div>
-        </details>
+            <div class="actions">
+                <button type="button" id="clearMemory">Clear team memory</button>
+                <form method="dialog"><button>Done</button></form>
+            </div>
+        </dialog>
 
         <details class="surface utility" id="queue-panel">
             <summary>Task queue</summary>
@@ -253,7 +268,7 @@
                 <button type="button" id="aiSend">Send</button>
                 <button type="button" id="stop-ai" hidden>Stop AI</button>
             </div>
-            <p class="hint" id="command-hint">Try “Show navigation,” “Open settings,” or “Reflect on my day.”</p>
+            <p class="hint" id="command-hint">Try “Hello,” “Open camera,” or “Show diagnostics.”</p>
         </section>
     </main>
     <script>
@@ -571,6 +586,12 @@
         const navigationPanel = document.getElementById('nav-panel');
         const voice = window.Capacitor?.Plugins?.WordVoice;
         const nativeShare = window.Capacitor?.Plugins?.WordShare;
+        const deviceTools = window.Capacitor?.Plugins?.WordDevice;
+        document.getElementById('permissions-btn').addEventListener('click', openPermissions);
+
+        function openPermissions() {
+            if (!settingsPanel.open) settingsPanel.showModal();
+        }
         const recognitionClass = window.SpeechRecognition ?? window.webkitSpeechRecognition;
 
         function displayReply(text) {
@@ -607,14 +628,45 @@
             const command = commandInput.value.trim();
             if (!command) return;
             const name = command.toLowerCase().replace(/[.!?]+$/, '');
-            if (/^(help|commands|what can you do)$/.test(name)) {
-                displayReply('Try “Show status”, “Open settings”, “Show task queue”, “Share reply”, “Navigate to 45.52, -122.68”, “Stop navigation”, “Reflect on a decision”, or “Propose an improvement: make task summaries shorter”.');
+            if (/^(hello|hi|hey)( the word)?$/.test(name)) {
+                displayReply('Hello. Try asking what I can do, or say “Open camera”.');
                 return;
             }
-            if (/^(open |show )?(settings|owner controls)$/.test(name)) {
-                settingsPanel.open = true;
-                settingsPanel.scrollIntoView({block: 'nearest'});
-                displayReply('Owner controls opened.');
+            if (/^(show )?(diagnostics|voice diagnostics)$/.test(name)) {
+                displayReply(['The Word • Device diagnostics',
+                    'Native voice: ' + (voice ? 'available' : 'unavailable'),
+                    'Spoken replies: ' + (speechEnabled.checked ? 'on' : 'off'),
+                    'AI model access: ' + (document.getElementById('ownerEnable').checked ? 'allowed' : 'off'),
+                    'Camera and flashlight bridge: ' + (deviceTools ? 'available' : 'unavailable'),
+                    'Last voice result: ' + lastVoiceResult,
+                    'Take a screenshot of this panel and attach it in ChatGPT to share it.'
+                ].join('\n'));
+                return;
+            }
+            const torch = name.match(/^(?:turn |switch )?(on|off) (?:the )?(?:flashlight|flash light|torch)$/)
+                || name.match(/^(?:turn |switch )?(?:the )?(?:flashlight|flash light|torch) (on|off)$/);
+            if (name === 'open camera' || name === 'open the camera' || torch) {
+                try {
+                    if (!deviceTools) throw new Error('These controls require the Android app.');
+                    if (torch) {
+                        const enabled = torch[1] === 'on';
+                        await deviceTools.setTorch({enabled});
+                        displayReply(enabled ? 'Flashlight on.' : 'Flashlight off.');
+                    } else {
+                        await deviceTools.openCamera();
+                    }
+                } catch (error) {
+                    displayReply(error.message || 'The device could not complete the command.');
+                }
+                return;
+            }
+            if (/^(help|commands|what can you do)$/.test(name)) {
+                displayReply('Try “Show diagnostics”, “Open permissions”, “Open camera”, “Flashlight on”, “Show task queue”, “Share reply”, “Navigate to 45.52, -122.68”, “Stop navigation”, “Reflect on a decision”, or “Propose an improvement: make task summaries shorter”.');
+                return;
+            }
+            if (/^(open |show )?(settings|owner controls|permissions)$/.test(name)) {
+                openPermissions();
+                displayReply('Permissions and controls opened.');
                 return;
             }
             if (/^(open |show )?(queue|task queue|tasks)$/.test(name)) {
@@ -696,6 +748,7 @@
         }
 
         let listening = false;
+        let lastVoiceResult = 'No attempt yet';
         microphone.addEventListener('click', async () => {
             if (listening) return;
             listening = true;
@@ -704,6 +757,7 @@
             commandStatus.textContent = 'Listening…';
             document.body.dataset.voiceState = 'listening';
             microphone.setAttribute('aria-pressed', 'true');
+            let recognized = false;
             try {
                 let text;
                 if (voice) {
@@ -724,16 +778,18 @@
                 }
                 if (!text?.trim()) throw new Error('No speech detected. Try again or type.');
                 commandInput.value = text;
-                commandStatus.textContent = 'Review your command, then send.';
-                commandInput.focus();
+                lastVoiceResult = 'Speech recognized and submitted';
+                recognized = true;
             } catch (error) {
-                commandStatus.textContent = error.message || 'Voice input is unavailable. Type your command.';
+                lastVoiceResult = error.code || 'No usable speech';
+                commandStatus.textContent = (error.message || 'Voice input is unavailable.') + ' You can also use the microphone on your Samsung keyboard.';
             } finally {
                 listening = false;
                 microphone.disabled = false;
                 delete document.body.dataset.voiceState;
                 microphone.setAttribute('aria-pressed', 'false');
             }
+            if (recognized) await runCommand();
         });
 
         commandButton.addEventListener('click', runCommand);

@@ -22,7 +22,7 @@ def prepare_android(app_id: str) -> None:
         raise FileNotFoundError(f"Run Capacitor Android setup first. Missing {activity}")
 
     overlay = ROOT / "android-overlay"
-    for package, filename in (("voice", "WordVoicePlugin.java"), ("share", "WordSharePlugin.java")):
+    for package, filename in (("voice", "WordVoicePlugin.java"), ("share", "WordSharePlugin.java"), ("device", "WordDevicePlugin.java")):
         plugin = source / "java/com/example/ainavigator" / package
         plugin.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(overlay / filename, plugin / filename)
@@ -30,6 +30,7 @@ def prepare_android(app_id: str) -> None:
         f"""package {app_id};
 
 import android.os.Bundle;
+import com.example.ainavigator.device.WordDevicePlugin;
 import com.example.ainavigator.share.WordSharePlugin;
 import com.example.ainavigator.voice.WordVoicePlugin;
 import com.getcapacitor.BridgeActivity;
@@ -38,6 +39,7 @@ public class MainActivity extends BridgeActivity {{
     @Override
     public void onCreate(Bundle savedInstanceState) {{
         registerPlugin(WordVoicePlugin.class);
+        registerPlugin(WordDevicePlugin.class);
         registerPlugin(WordSharePlugin.class);
         super.onCreate(savedInstanceState);
     }}
@@ -76,7 +78,7 @@ public class MainActivity extends BridgeActivity {{
             default.unlink()
 
     permissions = {element.get(ANDROID_NAME) for element in root.findall("uses-permission")}
-    for permission in ("RECORD_AUDIO", "ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"):
+    for permission in ("RECORD_AUDIO", "ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "CAMERA"):
         name = f"android.permission.{permission}"
         if name not in permissions:
             ET.SubElement(root, "uses-permission", {ANDROID_NAME: name})

@@ -3,7 +3,7 @@ const { readFileSync } = require('node:fs');
 const { test } = require('node:test');
 const vm = require('node:vm');
 
-function loadCommands() {
+function loadCommands(plugins = {}) {
     const html = readFileSync('index.html', 'utf8');
     const start = html.indexOf('        const commandInput');
     const source = html.slice(start, html.indexOf('</script>', start));
@@ -12,7 +12,7 @@ function loadCommands() {
     let active = false;
     let shared;
     const context = vm.createContext({
-        window: {},
+        window: { Capacitor: { Plugins: plugins } },
         navigator: { share: async payload => { shared = payload; } },
         document: {
             body: { dataset: {} },
@@ -21,7 +21,7 @@ function loadCommands() {
                     elements.set(id, {
                         checked: false, hidden: true, open: false, textContent: '',
                         addEventListener(event, handler) { this[event] = handler; },
-                        scrollIntoView() {}, focus() {}
+                        scrollIntoView() {}, focus() {}, showModal() { this.open = true; }, setAttribute() {}
                     });
                 }
                 return elements.get(id);
@@ -72,4 +72,36 @@ test('sharing requires a separate tap on the system share button', async () => {
     assert.equal(shared().title, 'The Word');
     assert.match(shared().text, /conversation/);
     assert.equal(elements.get('share-reply').hidden, true);
+});
+
+test('a successful spoken command submits directly and can read the reply aloud', async () => {
+    let spoken;
+    const { elements, requests } = loadCommands({
+        WordVoice: {
+            stop: async () => {},
+            listen: async () => ({ text: 'Hello' }),
+            speak: async ({ text }) => { spoken = text; }
+        }
+    });
+    elements.get('speech-enable').checked = true;
+    await elements.get('mic-btn').click();
+    assert.equal(elements.get('aiPrompt').value, 'Hello');
+    assert.match(elements.get('response').textContent, /^Hello/);
+    assert.match(spoken, /^Hello/);
+    assert.deepEqual(requests, []);
+});
+
+test('camera and flashlight commands route directly to the device bridge', async () => {
+    const actions = [];
+    const { run, requests } = loadCommands({
+        WordDevice: {
+            openCamera: async () => { actions.push('camera'); },
+            setTorch: async ({ enabled }) => { actions.push(enabled); }
+        }
+    });
+    await run('Open camera');
+    await run('Turn on flashlight');
+    await run('Flashlight off');
+    assert.deepEqual(actions, ['camera', true, false]);
+    assert.deepEqual(requests, []);
 });
