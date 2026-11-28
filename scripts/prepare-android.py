@@ -66,6 +66,9 @@ public class MainActivity extends BridgeActivity {{
         target = resources / directory
         target.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(overlay / filename, target / filename)
+    artwork = resources / "drawable-nodpi"
+    artwork.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(ROOT / "assets/compass-emblem.webp", artwork / "the_word_compass_art.webp")
     styles = resources / "values/styles.xml"
     style_tree = ET.parse(styles)
     old_launch_style = style_tree.find("./style[@name='AppTheme.NoActionBarLaunch']")

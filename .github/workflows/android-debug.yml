@@ -7,6 +7,7 @@ on:
       - .github/workflows/android-debug.yml
       - index.html
       - android-overlay/**
+      - assets/**
       - scripts/prepare-android.py
       - scripts/prepare-web.cjs
       - tests/**
@@ -46,6 +47,7 @@ jobs:
           "$build_tools/aapt" dump badging "$apk" | grep -F "package: name='com.example.theword.preview'"
           "$build_tools/aapt" dump badging "$apk" | grep -F "application-label:'The Word'"
           unzip -p "$apk" assets/public/index.html | cmp - www/index.html
+          unzip -p "$apk" assets/public/assets/compass-emblem.webp | cmp - assets/compass-emblem.webp
           python3 - "$apk" <<'PY'
           from sys import argv
           from zipfile import ZipFile
