@@ -6,8 +6,10 @@ on:
     paths:
       - .github/workflows/android-debug.yml
       - index.html
+      - android-overlay/**
+      - scripts/prepare-android.py
       - scripts/prepare-web.cjs
-      - tests/ai-smoke.cjs
+      - tests/**
 permissions:
   contents: read
 jobs:
@@ -23,20 +25,40 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - run: node tests/ai-smoke.cjs
+      - run: node --test tests/*.cjs
       - run: node scripts/prepare-web.cjs
       - run: |
           npm init -y
           npm install --save-exact @capacitor/core@7.4.3 @capacitor/cli@7.4.3 @capacitor/android@7.4.3
-          npx cap init "AI Navigator Test" com.example.ainavigator.test --web-dir www
+          npx cap init "The Word" com.example.ainavigator.test --web-dir www
           npx cap add android
           npx cap sync android
+          python3 scripts/prepare-android.py
       - run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
+      - name: Verify Android package
+        run: |
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          build_tools="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          "$build_tools/apksigner" verify --print-certs "$apk"
+          "$build_tools/aapt" dump badging "$apk" | grep -F "package: name='com.example.ainavigator.test'"
+          "$build_tools/aapt" dump badging "$apk" | grep -F "application-label:'The Word'"
+          unzip -p "$apk" assets/public/index.html | cmp - www/index.html
+          python3 - "$apk" <<'PY'
+          from sys import argv
+          from zipfile import ZipFile
+          with ZipFile(argv[1]) as archive:
+              plugin = b"Lcom/example/ainavigator/voice/WordVoicePlugin;"
+              assert any(
+                  plugin in archive.read(name)
+                  for name in archive.namelist()
+                  if name.endswith(".dex")
+              ), "Native voice plugin missing"
+          PY
       - uses: actions/upload-artifact@v4
         with:
-          name: ai-navigator-test-apk
+          name: the-word-test-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
