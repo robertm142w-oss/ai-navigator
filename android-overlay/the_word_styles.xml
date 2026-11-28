@@ -1,0 +1,9 @@
+<resources>
+    <color name="the_word_background">#172719</color>
+    <item type="mipmap" name="the_word_launcher">@drawable/the_word_mark</item>
+    <style name="TheWordLaunch" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/the_word_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/the_word_mark</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+    </style>
+</resources>

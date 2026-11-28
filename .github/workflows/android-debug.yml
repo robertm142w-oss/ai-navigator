@@ -50,15 +50,20 @@ jobs:
           from sys import argv
           from zipfile import ZipFile
           with ZipFile(argv[1]) as archive:
-              plugin = b"Lcom/example/ainavigator/voice/WordVoicePlugin;"
-              assert any(
-                  plugin in archive.read(name)
+              dex_files = [
+                  archive.read(name)
                   for name in archive.namelist()
                   if name.endswith(".dex")
-              ), "Native voice plugin missing"
+              ]
+              for plugin in (
+                  b"Lcom/example/ainavigator/voice/WordVoicePlugin;",
+                  b"Lcom/example/ainavigator/share/WordSharePlugin;",
+              ):
+                  assert any(plugin in dex for dex in dex_files), f"Missing {plugin}"
           PY
       - uses: actions/upload-artifact@v4
         with:
           name: the-word-test-apk
+          retention-days: 7
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

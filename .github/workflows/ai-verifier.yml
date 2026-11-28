@@ -18,6 +18,8 @@ jobs:
           node-version: '22'
       - name: Run bounded mocked AI orchestration tests
         run: timeout 60s node tests/ai-smoke.cjs
+      - name: Run command and sharing regression tests
+        run: timeout 60s node tests/commands.test.cjs
       - name: Run navigation regression tests
         run: timeout 60s node tests/navigation.test.cjs
       - name: Record verification scope

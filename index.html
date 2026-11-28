@@ -516,7 +516,9 @@
         stopAI.addEventListener('click', () => resetInference(new Error(cancelledMessage)));
         shareReply.addEventListener('click', async () => {
             try {
-                await navigator.share({title: 'The Word', text: shareText});
+                const payload = {title: 'The Word', text: shareText};
+                if (nativeShare) await nativeShare.open({text: payload.text});
+                else await navigator.share(payload);
             } catch (error) {
                 if (error.name !== 'AbortError') commandStatus.textContent = 'Sharing unavailable. Select the reply text to copy it.';
             } finally {
@@ -530,6 +532,7 @@
         const queuePanel = document.getElementById('queue-panel');
         const navigationPanel = document.getElementById('nav-panel');
         const voice = window.Capacitor?.Plugins?.WordVoice;
+        const nativeShare = window.Capacitor?.Plugins?.WordShare;
         const recognitionClass = window.SpeechRecognition ?? window.webkitSpeechRecognition;
 
         function displayReply(text) {
@@ -541,7 +544,7 @@
         async function speakReply(text) {
             if (!speechEnabled.checked || !text) return;
             try {
-                const excerpt = text.trim().slice(0, 650);
+                const excerpt = text.trim().slice(0, 600);
                 if (voice) {
                     document.body.dataset.voiceState = 'speaking';
                     try { await voice.speak({ text: excerpt }); }
@@ -598,7 +601,7 @@
                 const reply = commandOutput.textContent.trim();
                 if (!reply || commandButton.disabled) {
                     commandStatus.textContent = 'Wait for a complete reply before sharing.';
-                } else if (typeof navigator.share !== 'function') {
+                } else if (!nativeShare && typeof navigator.share !== 'function') {
                     commandStatus.textContent = 'Select the reply text to copy and share it.';
                 } else {
                     shareText = reply;
