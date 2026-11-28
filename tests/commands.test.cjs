@@ -103,7 +103,16 @@ test('camera and flashlight commands route directly to the device bridge', async
     await run('Open camera');
     await run('Turn on flashlight');
     await run('Flashlight off');
-    assert.deepEqual(actions, ['camera', true, false]);
+    await run('Open my flashlight');
+    await run('Can you turn my flashlight off, please?');
+    assert.deepEqual(actions, ['camera', true, false, true, false]);
+    assert.deepEqual(requests, []);
+});
+
+test('a missing flashlight bridge returns a local reply without starting Commander', async () => {
+    const { elements, requests, run } = loadCommands();
+    await run('Open my flashlight');
+    assert.match(elements.get('response').textContent, /Flashlight control is unavailable/);
     assert.deepEqual(requests, []);
 });
 

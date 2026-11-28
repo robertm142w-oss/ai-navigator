@@ -104,6 +104,10 @@ async function test() {
     const pending = evaluate('sendMessage({proposal: true})');
     assert.equal(workers.length, 2);
     assert.equal(active, 1);
+    workers.at(-1).onmessage({data: {progress: 100}});
+    assert.match(get('aiStatus').textContent, /Commander preparing model/);
+    workers.at(-1).onmessage({data: {phase: 'generating'}});
+    assert.match(get('aiStatus').textContent, /Commander generating reply/);
     disable();
     await pending;
     assert.equal(active, 0);
@@ -111,6 +115,7 @@ async function test() {
     assert.equal(get('aiSend').disabled, false);
     assert.match(get('response').textContent, /AI stopped by owner/);
     assert.equal(JSON.parse(storage.get('ai-navigator-queue-v1')).at(-1).status, 'interrupted');
+    assert.match(get('taskQueue').textContent, /interrupted.*generating reply/);
     assert.ok(!storage.has('ai-navigator-team-v1'));
     owner.checked = true;
     const blank = evaluate('sendMessage({proposal: true})');
