@@ -45,6 +45,9 @@
         }
         #owner-settings { width: min(29rem, calc(100% - 2rem)); max-height: 85dvh; color: inherit; }
         #owner-settings::backdrop { background: #080e0bcc; }
+        #device-sharing { margin-block: 1rem; }
+        #device-sharing textarea { margin-bottom: .5rem; }
+        #pairing-code, #pairing-state { overflow-wrap: anywhere; }
         #owner-settings h2 { margin-bottom: .75rem; }
         #owner-settings .hint + .hint { margin-top: .55rem; }
         @media (prefers-reduced-motion: reduce) { .hero { animation: none; } }
@@ -204,6 +207,27 @@
             <label class="check-label"><input type="checkbox" id="wake-on-launch"> Listen for “Hey The Word” once when I open the app</label>
             <p class="hint">Wake phrase testing uses a short microphone session while the app is open. Use Stop listening to end it early.</p>
             <p class="hint">The optional AI model downloads about 786 MB on first use. AI code proposals require review.</p>
+            <details id="device-sharing">
+                <summary>Share lessons with another phone</summary>
+                <p class="hint" id="pairing-state">Checking pairing</p>
+                <p class="hint">Pairing code on this phone</p>
+                <p id="pairing-code"></p>
+                <div class="actions">
+                    <button type="button" id="pairing-offer">Prepare my pairing message</button>
+                    <button type="button" id="pairing-pair">Approve phone</button>
+                    <button type="button" id="pairing-revoke" hidden>Revoke device</button>
+                </div>
+                <label class="label" for="pairing-input">Paste a message from your other phone</label>
+                <textarea id="pairing-input" rows="2" maxlength="8192"></textarea>
+                <label class="label" for="pairing-output">Copy this message to your other phone</label>
+                <textarea id="pairing-output" rows="2" readonly></textarea>
+                <div class="actions">
+                    <select id="pairing-lesson" aria-label="Saved lesson to share" hidden></select>
+                    <button type="button" id="pairing-share" hidden>Prepare signed lesson</button>
+                    <button type="button" id="pairing-import" hidden>Review incoming lesson</button>
+                </div>
+                <p class="hint" id="pairing-status" aria-live="polite"></p>
+            </details>
             <div class="actions">
                 <button type="button" id="clearMemory">Clear team memory</button>
                 <button type="button" id="open-lessons">Manage saved lessons</button>
@@ -758,6 +782,18 @@
             lessonStatus.textContent = 'Lesson saved on this device.';
             renderLessons();
         });
+        const pairingPanel = document.getElementById('device-sharing');
+        pairingPanel.addEventListener('toggle', async function initializePairing() {
+            if (!pairingPanel.open) return;
+            pairingPanel.removeEventListener('toggle', initializePairing);
+            try {
+                const { initLessonSharing } = await import('./src/lesson-sharing.js');
+                initLessonSharing({panel: pairingPanel, loadLessons: readLessons, appendLesson: appendApprovedLesson});
+            } catch {
+                document.getElementById('pairing-status').textContent = 'Device pairing is unavailable.';
+            }
+        });
+
         const recognitionClass = window.SpeechRecognition ?? window.webkitSpeechRecognition;
 
         function displayReply(text) {
