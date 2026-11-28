@@ -14,12 +14,13 @@
             android:strokeColor="#8FA87B"
             android:strokeWidth="3" />
         <path
-            android:pathData="M67,106 C47,101 29,90 29,72 C29,61 37,51 34,42 C32,35 25,33 18,35 C27,25 41,24 50,37 C56,46 63,51 72,51 C81,51 88,46 94,37 C103,24 117,25 126,35 C119,33 112,35 110,42 C107,51 115,61 115,72 C115,90 97,101 77,106 M72,107 A9,9 0,1 1,72 125 A9,9 0,1 1,72 107 Z"
+            android:pathData="M67,106 C47,101 29,90 29,72 C29,61 37,51 34,42 C32,35 25,33 18,35 C27,25 41,24 50,37 C56,46 63,51 72,51 C81,51 88,46 94,37 C103,24 117,25 126,35 C119,33 112,35 110,42 C107,51 115,61 115,72 C115,90 97,101 77,106 M72,107 A8.5,8.5 0,1 1,72 124 A8.5,8.5 0,1 1,72 107 Z"
             android:strokeColor="#D8E7C1"
             android:strokeLineJoin="round"
+            android:strokeLineCap="round"
             android:strokeWidth="4" />
         <path
-            android:pathData="M57,91 L72,110 L87,91 Z"
+            android:pathData="M60,91 H84 Q87,91 85,94 L74,106 Q72,108 70,106 L59,94 Q57,91 60,91 Z"
             android:fillColor="#D8E7C1" />
     </group>
 </vector>
