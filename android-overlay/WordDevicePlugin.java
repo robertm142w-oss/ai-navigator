@@ -1,12 +1,15 @@
 package com.example.ainavigator.device;
 
 import android.Manifest;
+import android.app.ActivityManager;
 import android.content.Intent;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.provider.MediaStore;
+import android.provider.CalendarContract;
 
+import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -31,6 +34,39 @@ public class WordDevicePlugin extends Plugin {
                 call.resolve();
             } catch (RuntimeException error) {
                 call.reject("Could not open the phone's camera app.");
+            }
+        });
+    }
+
+    @PluginMethod
+    public void memoryStatus(PluginCall call) {
+        ActivityManager activityManager = getContext().getSystemService(ActivityManager.class);
+        if (activityManager == null) {
+            call.reject("Android memory status is unavailable.");
+            return;
+        }
+        ActivityManager.MemoryInfo memory = new ActivityManager.MemoryInfo();
+        activityManager.getMemoryInfo(memory);
+        JSObject status = new JSObject();
+        status.put("lowMemory", memory.lowMemory);
+        call.resolve(status);
+    }
+
+    @PluginMethod
+    public void draftCalendarEvent(PluginCall call) {
+        String title = call.getString("title", "").trim();
+        if (title.isEmpty() || title.length() > 120) {
+            call.reject("Use an event title up to 120 characters.");
+            return;
+        }
+        getActivity().runOnUiThread(() -> {
+            try {
+                Intent draft = new Intent(Intent.ACTION_INSERT, CalendarContract.Events.CONTENT_URI);
+                draft.putExtra(CalendarContract.Events.TITLE, title);
+                getActivity().startActivity(draft);
+                call.resolve();
+            } catch (RuntimeException error) {
+                call.reject("A calendar editor could not be opened.");
             }
         });
     }

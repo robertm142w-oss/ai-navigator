@@ -133,6 +133,15 @@ async function test() {
     await rejectedRevision;
     assert.match(get('aiStatus').textContent, /Revision needs correction/);
     assert.ok(!storage.has('ai-navigator-team-v1'));
+    const wrongArithmetic = evaluate('sendMessage({proposal: true})');
+    for (const reply of ['Plan', 'Check: difference between 10 and 7 is 3', 'Review', 'Check: difference between 10 and 7 is 9']) {
+        workers.at(-1).onmessage({data: {reply}});
+        await new Promise(resolve => setImmediate(resolve));
+    }
+    await wrongArithmetic;
+    assert.match(get('aiStatus').textContent, /Revision needs correction/);
+    assert.match(get('response').textContent, /difference between 10 and 7 is 3/);
+    assert.ok(!storage.has('ai-navigator-team-v1'));
     const idle = [...timers.values()].find(timer => timer.delay === 30000);
     idle?.callback();
     console.log('PASS: model consent, shared worker, proposal flow, memory, idle cleanup and cancellation');

@@ -51,3 +51,13 @@ The app now holds revisions for correction when code from an earlier fenced exam
 The Coder checkpoint was pinned to `604bb1988ff789d5024d589c63cf9ae81c0c8ab5`, with weights SHA-256 `cb62cac8484892079798a70b791d9f1b178735e0456e904011cce52ecd3c8787`. The SmolLM2 checkpoint was pinned to `a10cc1512eabd3dde888204e902eca88bddb4951`, with weights SHA-256 `a4ffda96e65beafc6f6cef0cbcf9fdc1cbdd79c230906bf3897d190547c7a596`. Both hashes matched the publishers' linked asset metadata.
 
 These four fixtures are a screening test, not a broad ranking. Neither replacement improved correctness on this test. Leave the app's default in place and use independent checks for claims that can be calculated or otherwise verified. Test any future candidate on the target device before changing the release model.
+
+## Resource sprint: verifiable commands and Android profiling
+
+The Word calculates spoken or typed absolute-difference checks locally with bounded exact integer arithmetic. Proposal revisions also verify any marked absolute-difference examples independently. The app reports the number of checked examples and holds a revision with a wrong result. This check applies only to the supported format.
+
+In an offline Qwen Q4 experiment on the same four input pairs, a plain integer prompt returned the right calculation on 1/4 and a one-field JSON prompt on 2/4. These prompts differ from the reviewer benchmark, so this comparison isolates prompting format rather than model quality. The trusted arithmetic calculation passes all four cases.
+
+Microsoft's ONNX Runtime Mobile checker reported NNAPI support for 684 of 2,635 nodes (26%) across 96 partitions for the current Qwen Q4 graph. A small host test with the same prompt produced the same answer at one and two native CPU threads. One thread took about 1.7 seconds per generation, and two threads took about 0.7 seconds, both near 2.86 GiB process RSS. Compare native CPU execution with the existing WebView on the A17 before changing the app. Capture cold load, first-token latency and separate Android app and renderer PSS. The Diagnostics command now reports total time for the last AI request and Android's system memory-pressure signal. [ONNX Runtime Mobile](https://onnxruntime.ai/docs/tutorials/mobile/) · [Android WebView memory profiling](https://developer.android.com/topic/performance/memory/guide/webview-memory)
+
+The calendar command opens Android's event editor with the title supplied by the user. Date, time, and saving are handled in that editor. [Android calendar intents](https://developer.android.com/guide/components/intents-common#Calendar)

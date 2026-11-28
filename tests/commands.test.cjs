@@ -6,7 +6,9 @@ const vm = require('node:vm');
 function loadCommands(plugins = {}) {
     const html = readFileSync('index.html', 'utf8');
     const start = html.indexOf('        const commandInput');
-    const source = html.slice(start, html.indexOf('</script>', start));
+    const helperStart = html.indexOf('        function checkIntegerDifference');
+    const helperEnd = html.indexOf('        function checkMarkedExamples', helperStart);
+    const source = html.slice(helperStart, helperEnd) + html.slice(start, html.indexOf('</script>', start));
     const elements = new Map();
     const requests = [];
     const requestsText = [];
@@ -28,6 +30,7 @@ function loadCommands(plugins = {}) {
                 return elements.get(id);
             }
         },
+        lastAIRequestMs: 1250,
         watchId: null,
         parseDest: text => text === '45.52, -122.68',
         startTracking: async () => { active = true; },
@@ -110,4 +113,45 @@ test('improve yourself sends a bounded core-improvement request to proposal mode
     assert.deepEqual(requests, [true]);
     assert.match(requestsText[0], /one small improvement/);
     assert.match(requestsText[0], /keep approval controls intact/);
+});
+
+test('integer difference checks give exact results without starting AI', async () => {
+    const { elements, requests, run } = loadCommands();
+    const examples = [
+        ['Check the difference between 10 and 7 is 9', /^Incorrect.*= 3/],
+        ['Difference between -5 and 2 equals 7', /^Correct.*= 7/],
+        ['Calculate the difference between 2 and -5', /= 7/],
+        ['What is the difference between -4 and -4?', /= 0/],
+        ['Difference between 9007199254740993 and 0', /= 9007199254740993/],
+        ['Difference between 1.5 and 0', /Use two integers/]
+    ];
+    for (const [command, response] of examples) {
+        await run(command);
+        assert.match(elements.get('response').textContent, response);
+    }
+    assert.deepEqual(requests, []);
+});
+
+test('calendar commands open an editor with just the user-supplied title', async () => {
+    const drafts = [];
+    const { elements, requests, run } = loadCommands({
+        WordDevice: { draftCalendarEvent: async ({title}) => { drafts.push(title); } }
+    });
+    await run('Draft calendar event: Call Robert');
+    assert.deepEqual(drafts, ['Call Robert']);
+    assert.match(elements.get('response').textContent, /Choose the date and time/);
+    await run('Draft calendar event for ' + 'x'.repeat(121));
+    assert.deepEqual(drafts, ['Call Robert']);
+    assert.match(elements.get('response').textContent, /up to 120 characters/);
+    assert.deepEqual(requests, []);
+});
+
+test('diagnostics show native memory pressure separately from elapsed AI request time', async () => {
+    const { elements, requests, run } = loadCommands({
+        WordDevice: { memoryStatus: async () => ({lowMemory: true}) }
+    });
+    await run('Show diagnostics');
+    assert.match(elements.get('response').textContent, /Android reports memory pressure/);
+    assert.match(elements.get('response').textContent, /Last AI request time: 1.3 s/);
+    assert.deepEqual(requests, []);
 });

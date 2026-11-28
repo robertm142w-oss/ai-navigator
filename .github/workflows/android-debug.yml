@@ -35,6 +35,15 @@ jobs:
           npx cap add android
           npx cap sync android
           python3 scripts/prepare-android.py com.example.theword.mobile
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          path = Path("android/app/build.gradle")
+          content = path.read_text()
+          assert "versionCode 1" in content and 'versionName "1.0"' in content
+          path.write_text(content.replace("versionCode 1", "versionCode " + str(int(os.environ["GITHUB_RUN_NUMBER"])), 1)
+              .replace('versionName "1.0"', 'versionName "1.1"', 1))
+          PY
       - run: |
           cd android
           chmod +x gradlew
