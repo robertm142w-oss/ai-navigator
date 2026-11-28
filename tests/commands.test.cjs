@@ -3,7 +3,7 @@ const { readFileSync } = require('node:fs');
 const { test } = require('node:test');
 const vm = require('node:vm');
 
-function loadCommands(plugins = {}, storage = new Map()) {
+function loadCommands(plugins = {}, storage = new Map(), reducedMotion = false) {
     const html = readFileSync('index.html', 'utf8');
     const start = html.indexOf('        const commandInput');
     const helperStart = html.indexOf('        function checkIntegerDifference');
@@ -15,7 +15,7 @@ function loadCommands(plugins = {}, storage = new Map()) {
     let active = false;
     let shared;
     const context = vm.createContext({
-        window: { Capacitor: { Plugins: plugins } },
+        window: { Capacitor: { Plugins: plugins }, matchMedia: () => ({matches: reducedMotion}) },
         navigator: { share: async payload => { shared = payload; } },
         localStorage: {
             getItem: key => storage.get(key) ?? null,
@@ -26,7 +26,7 @@ function loadCommands(plugins = {}, storage = new Map()) {
             getElementById(id) {
                 if (!elements.has(id)) {
                     elements.set(id, {
-                        checked: false, hidden: true, open: false, textContent: '',
+                        checked: false, hidden: true, open: false, textContent: '', dataset: {},
                         addEventListener(event, handler) { this[event] = handler; },
                         scrollIntoView() {}, focus() {}, showModal() { this.open = true; }, setAttribute() {}
                     });
@@ -50,6 +50,69 @@ function loadCommands(plugins = {}, storage = new Map()) {
     };
     return { elements, requests, requestsText, run, theme: () => context.document.body.dataset.theme, active: () => active, shared: () => shared };
 }
+
+function emblemPointer(timeStamp, clientY = 100) {
+    return { isPrimary: true, button: 0, pointerId: 1, clientX: 50, clientY, timeStamp };
+}
+
+test('the emblem tap starts and stops a speech session', async () => {
+    const speech = Promise.withResolvers();
+    const started = Promise.withResolvers();
+    let listening = false;
+    const { elements, requests } = loadCommands({WordVoice: {
+        listen() {
+            listening = true;
+            started.resolve();
+            return speech.promise;
+        },
+        async stop() {
+            if (listening) speech.resolve({text: 'A cancelled command'});
+        },
+    }});
+    const emblem = elements.get('word-emblem');
+    emblem.pointerdown(emblemPointer(0));
+    emblem.pointerup(emblemPointer(100));
+    const initialTap = emblem.click({detail: 1});
+    await started.promise;
+    await emblem.click({detail: 1});
+    await initialTap;
+    assert.match(elements.get('aiStatus').textContent, /Listening stopped/);
+    assert.deepEqual(requests, []);
+});
+
+test('holding the emblem opens controls without starting the microphone', async () => {
+    let listens = 0;
+    const { elements } = loadCommands({WordVoice: {
+        stop: async () => {},
+        listen: async () => { listens++; return {text: 'Hello'}; },
+    }});
+    const emblem = elements.get('word-emblem');
+    emblem.pointerdown(emblemPointer(0));
+    emblem.pointerup(emblemPointer(650));
+    await emblem.click({detail: 1});
+    assert.equal(elements.get('owner-settings').open, true);
+    assert.equal(listens, 0);
+});
+
+test('swiping up spins once, suppresses the tap, and honors reduced motion', async () => {
+    for (const reducedMotion of [false, true]) {
+        let listens = 0;
+        const { elements } = loadCommands({WordVoice: {
+            stop: async () => {},
+            listen: async () => { listens++; return {text: 'Hello'}; },
+        }}, new Map(), reducedMotion);
+        const emblem = elements.get('word-emblem');
+        emblem.pointerdown(emblemPointer(0));
+        emblem.pointermove(emblemPointer(80, 62));
+        emblem.pointerup(emblemPointer(120, 38));
+        await emblem.click({detail: 1});
+        assert.equal(Object.hasOwn(emblem.dataset, 'spinning'), !reducedMotion);
+        assert.equal(elements.get('owner-settings').open, false);
+        assert.equal(listens, 0);
+        emblem.animationend({animationName: 'arrow-tribute'});
+        assert.equal(Object.hasOwn(emblem.dataset, 'spinning'), false);
+    }
+});
 
 test('appearance can be changed and restored without enabling AI', () => {
     const storage = new Map([['the-word-appearance-v1', 'unknown']]);

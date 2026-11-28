@@ -89,11 +89,20 @@
             margin: 0;
         }
         .hero p { margin: 0.75rem 0 0; color: var(--muted); }
-        .emblem {
+        #word-emblem {
+            display: block;
             width: clamp(8rem, 37vw, 11rem);
+            margin: 0 auto 1rem;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            touch-action: none;
+            -webkit-touch-callout: none;
+        }
+        .emblem {
+            width: 100%;
             height: auto;
             display: block;
-            margin: 0 auto 1rem;
             color: var(--mint);
         }
         .emblem-art { mix-blend-mode: screen; }
@@ -108,6 +117,13 @@
 
         @media (prefers-reduced-motion: no-preference) {
             .emblem { animation: emblem-enter 720ms ease-out; }
+            #word-emblem[data-spinning] { animation: arrow-tribute 950ms cubic-bezier(.12,.79,.25,1); }
+            @keyframes arrow-tribute {
+                0% { transform: rotate(0) scale(1); }
+                45% { transform: rotate(690deg) scale(1.08); }
+                78% { transform: rotate(1092deg) scale(.98); }
+                100% { transform: rotate(1080deg) scale(1); }
+            }
             .emblem-orbit {
                 animation: emblem-orbit-enter 720ms ease-out;
                 transform-box: fill-box;
@@ -213,13 +229,17 @@
 <body>
     <main class="app">
         <header class="hero">
-            <svg class="emblem" viewBox="0 0 480 480" aria-hidden="true">
-                <image class="emblem-art" href="assets/compass-emblem.webp" width="480" height="480" />
-                <circle class="emblem-orbit" cx="240" cy="228" r="210" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-dasharray="21 145" />
-            </svg>
+            <button type="button" id="word-emblem" aria-label="Toggle voice listening"
+                aria-describedby="emblem-help" aria-pressed="false">
+                <svg class="emblem" viewBox="0 0 480 480" aria-hidden="true">
+                    <image class="emblem-art" href="assets/compass-emblem.webp" width="480" height="480" />
+                    <circle class="emblem-orbit" cx="240" cy="228" r="210" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-dasharray="21 145" />
+                </svg>
+            </button>
             <h1>The Word</h1>
             <p>Life Navigation</p>
+            <p class="hint" id="emblem-help">Tap the logo to speak, hold for controls, or swipe up to spin it.</p>
         </header>
 
         <section class="surface" aria-labelledby="reply-heading">
@@ -1155,14 +1175,61 @@
             if (wakeOnLaunch.checked && voice) listenForCommand(true);
         }, {once: true});
         let wakeCancelled = false;
+        let activeRecognizer;
+        const emblemButton = document.getElementById('word-emblem');
+        let emblemPress;
+        let suppressEmblemClick = false;
+
+        emblemButton.addEventListener('pointerdown', event => {
+            if (!event.isPrimary || event.button !== 0) return;
+            suppressEmblemClick = false;
+            emblemPress = { id: event.pointerId, time: event.timeStamp, x: event.clientX, y: event.clientY, moved: false };
+            emblemButton.setPointerCapture?.(event.pointerId);
+        });
+        emblemButton.addEventListener('pointermove', event => {
+            if (emblemPress?.id === event.pointerId &&
+                Math.hypot(event.clientX - emblemPress.x, event.clientY - emblemPress.y) > 12) {
+                emblemPress.moved = true;
+            }
+        });
+        emblemButton.addEventListener('pointercancel', () => { emblemPress = undefined; });
+        emblemButton.addEventListener('contextmenu', event => event.preventDefault());
+        emblemButton.addEventListener('pointerup', event => {
+            if (emblemPress?.id !== event.pointerId) return;
+            const { time, x, y, moved } = emblemPress;
+            emblemPress = undefined;
+            const rise = y - event.clientY;
+            const sideways = Math.abs(event.clientX - x);
+            const swipeUp = rise >= 40 && rise > sideways * 1.5;
+            const movedAway = moved || Math.hypot(sideways, rise) > 12;
+            const held = !movedAway && event.timeStamp - time >= 550;
+            suppressEmblemClick = movedAway || held;
+            if (swipeUp && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+                emblemButton.dataset.spinning = '';
+            }
+            if (held) openPermissions();
+        });
+        emblemButton.addEventListener('animationend', event => {
+            if (event.animationName === 'arrow-tribute') delete emblemButton.dataset.spinning;
+        });
+        emblemButton.addEventListener('click', event => {
+            if (suppressEmblemClick && event?.detail !== 0) return;
+            return listening ? stopListening() : listenForCommand(false);
+        });
         wakeTest.addEventListener('click', () => listenForCommand(true));
         microphone.addEventListener('click', () => listenForCommand(false));
-        wakeStop.addEventListener('click', async () => {
+        wakeStop.addEventListener('click', stopListening);
+
+        async function stopListening() {
             wakeCancelled = true;
             wakeStop.disabled = true;
-            try { await voice?.stop(); }
-            catch { commandStatus.textContent = 'The microphone could not be stopped immediately.'; }
-        });
+            try {
+                if (activeRecognizer) activeRecognizer.abort();
+                else await voice?.stop();
+            } catch {
+                commandStatus.textContent = 'The microphone could not be stopped immediately.';
+            }
+        }
 
         async function listenForCommand(wakeMode) {
             if (listening) return;
@@ -1180,6 +1247,7 @@
             commandStatus.textContent = wakeMode ? 'Say “Hey The Word,” then your command.' : 'Listening…';
             document.body.dataset.voiceState = 'listening';
             microphone.setAttribute('aria-pressed', 'true');
+            emblemButton.setAttribute('aria-pressed', 'true');
             let recognized = false;
             try {
                 let text;
@@ -1193,6 +1261,7 @@
                     if (!('processLocally' in recognizer)) throw new Error('Local voice input is unavailable here. Type or use your keyboard microphone.');
                     recognizer.processLocally = true;
                     recognizer.lang = 'en-US';
+                    activeRecognizer = recognizer;
                     text = await new Promise((resolve, reject) => {
                         recognizer.onresult = event => resolve(event.results[0][0].transcript);
                         recognizer.onerror = event => reject(new Error('Voice input: ' + event.error + '. Type or use your keyboard microphone.'));
@@ -1230,6 +1299,8 @@
                 wakeStop.hidden = true;
                 delete document.body.dataset.voiceState;
                 microphone.setAttribute('aria-pressed', 'false');
+                emblemButton.setAttribute('aria-pressed', 'false');
+                activeRecognizer = undefined;
             }
             if (recognized) await runCommand();
         }
