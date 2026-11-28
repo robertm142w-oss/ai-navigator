@@ -16,6 +16,12 @@
             --muted: #b3c2b5;
             --mint: #c9f883;
             --ink: #162313;
+            --page: #101712;
+            --glow: #273c2a;
+            --field: #111b14;
+            --field-line: #667f69;
+            --button: #27382a;
+            --button-line: #617c64;
         }
 
         *, *::before, *::after { box-sizing: border-box; }
@@ -25,7 +31,35 @@
             margin: 0;
             min-height: 100vh;
             min-height: 100dvh;
-            background: radial-gradient(ellipse at 50% 0%, #273c2a 0%, #101712 52%);
+            background: radial-gradient(ellipse at 50% 0%, var(--glow) 0%, var(--page) 52%);
+        }
+
+        body[data-theme="midnight"] {
+            --page: #101522;
+            --glow: #253650;
+            --panel: #192338;
+            --line: #465675;
+            --muted: #b9c8e0;
+            --mint: #a9d5ff;
+            --ink: #142339;
+            --field: #121b2d;
+            --field-line: #677c9d;
+            --button: #273955;
+            --button-line: #617797;
+        }
+
+        body[data-theme="ember"] {
+            --page: #1b1313;
+            --glow: #462a25;
+            --panel: #2a1d1c;
+            --line: #674941;
+            --muted: #e0c2b7;
+            --mint: #ffc396;
+            --ink: #341b12;
+            --field: #211616;
+            --field-line: #926c60;
+            --button: #412a25;
+            --button-line: #886156;
         }
 
         .app {
@@ -103,30 +137,32 @@
         #aiStatus, #status, .hint { color: var(--muted); font-size: 0.9rem; }
         .label { display: block; font-weight: 650; margin-bottom: 0.5rem; }
 
-        input, textarea, button { font: inherit; }
-        input[type="text"], textarea {
-            background: #111b14;
-            border: 1px solid #667f69;
+        input, textarea, button, select { font: inherit; }
+        input[type="text"], textarea, #appearance-theme {
+            background: var(--field);
+            border: 1px solid var(--field-line);
             border-radius: 0.75rem;
             color: inherit;
             padding: 0.75rem;
             width: 100%;
         }
+        .appearance { margin-block: 1rem; }
+        #appearance-theme { min-height: 3rem; }
         textarea { display: block; min-height: 3rem; max-height: 11rem; resize: vertical; }
         textarea::placeholder, input::placeholder { color: #a8b9aa; opacity: 1; }
 
         button, summary, .check-label { min-height: 3rem; }
         button {
-            border: 1px solid #617c64;
+            border: 1px solid var(--button-line);
             border-radius: 0.75rem;
-            background: #27382a;
+            background: var(--button);
             color: inherit;
             padding: 0.55rem 0.9rem;
             font-weight: 650;
             cursor: pointer;
         }
         button:disabled { opacity: 0.65; cursor: default; }
-        button:focus-visible, summary:focus-visible, input:focus-visible, textarea:focus-visible {
+        button:focus-visible, summary:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
             outline: 2px solid var(--mint);
             outline-offset: 3px;
         }
@@ -207,6 +243,14 @@
             <label class="check-label"><input type="checkbox" id="wake-on-launch"> Listen for “Hey The Word” once when I open the app</label>
             <p class="hint">Wake phrase testing uses a short microphone session while the app is open. Use Stop listening to end it early.</p>
             <p class="hint">The optional AI model downloads about 786 MB on first use. AI code proposals require review.</p>
+            <div class="appearance">
+                <label class="label" for="appearance-theme">Appearance</label>
+                <select id="appearance-theme">
+                    <option value="forest">Forest</option>
+                    <option value="midnight">Midnight</option>
+                    <option value="ember">Ember</option>
+                </select>
+            </div>
             <details id="device-sharing">
                 <summary>Share lessons with another phone</summary>
                 <p class="hint" id="pairing-state">Checking pairing</p>
@@ -750,6 +794,32 @@
         const voice = window.Capacitor?.Plugins?.WordVoice;
         const nativeShare = window.Capacitor?.Plugins?.WordShare;
         const deviceTools = window.Capacitor?.Plugins?.WordDevice;
+        const themePreference = 'the-word-appearance-v1';
+        const appearanceTheme = document.getElementById('appearance-theme');
+        const themes = ['forest', 'midnight', 'ember'];
+
+        function applyTheme(value) {
+            const theme = themes.includes(value) ? value : 'forest';
+            document.body.dataset.theme = theme;
+            appearanceTheme.value = theme;
+            return theme;
+        }
+
+        try {
+            applyTheme(localStorage.getItem(themePreference));
+        } catch {
+            applyTheme('forest');
+        }
+
+        appearanceTheme.addEventListener('change', () => {
+            const theme = applyTheme(appearanceTheme.value);
+            try {
+                localStorage.setItem(themePreference, theme);
+            } catch {
+                // Keep the chosen appearance for this session when storage is unavailable.
+            }
+        });
+
         document.getElementById('permissions-btn').addEventListener('click', openPermissions);
 
         function openPermissions() {

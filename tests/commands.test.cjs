@@ -3,7 +3,7 @@ const { readFileSync } = require('node:fs');
 const { test } = require('node:test');
 const vm = require('node:vm');
 
-function loadCommands(plugins = {}) {
+function loadCommands(plugins = {}, storage = new Map()) {
     const html = readFileSync('index.html', 'utf8');
     const start = html.indexOf('        const commandInput');
     const helperStart = html.indexOf('        function checkIntegerDifference');
@@ -17,6 +17,10 @@ function loadCommands(plugins = {}) {
     const context = vm.createContext({
         window: { Capacitor: { Plugins: plugins } },
         navigator: { share: async payload => { shared = payload; } },
+        localStorage: {
+            getItem: key => storage.get(key) ?? null,
+            setItem: (key, value) => storage.set(key, value)
+        },
         document: {
             body: { dataset: {} },
             getElementById(id) {
@@ -44,8 +48,20 @@ function loadCommands(plugins = {}) {
         elements.get('aiPrompt').value = command;
         await vm.runInContext('runCommand()', context);
     };
-    return { elements, requests, requestsText, run, active: () => active, shared: () => shared };
+    return { elements, requests, requestsText, run, theme: () => context.document.body.dataset.theme, active: () => active, shared: () => shared };
 }
+
+test('appearance can be changed and restored without enabling AI', () => {
+    const storage = new Map([['the-word-appearance-v1', 'unknown']]);
+    const app = loadCommands({}, storage);
+    assert.equal(app.theme(), 'forest');
+    const appearance = app.elements.get('appearance-theme');
+    appearance.value = 'midnight';
+    appearance.change();
+    assert.equal(app.theme(), 'midnight');
+    assert.equal(loadCommands({}, storage).theme(), 'midnight');
+    assert.deepEqual(app.requests, []);
+});
 
 test('local commands route ahead of the model and navigation stays paused', async () => {
     const { elements, requests, run, active } = loadCommands();
