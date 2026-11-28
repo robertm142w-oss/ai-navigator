@@ -1,0 +1,97 @@
+name: Android upgrade smoke test
+
+on:
+  push:
+    branches: [ai-readiness]
+    paths: [.github/workflows/android-device-smoke.yml]
+  workflow_dispatch:
+    inputs:
+      baseline_run:
+        description: 'Android debug APK workflow run with the baseline build'
+        required: true
+        type: string
+        default: '46099348348'
+      update_run:
+        description: 'Android debug APK workflow run with the update'
+        required: true
+        type: string
+        default: '46100201513'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download baseline APK
+        uses: actions/download-artifact@v4
+        with:
+          name: the-word-test-apk
+          run-id: ${{ inputs.baseline_run || '46099348348' }}
+          github-token: ${{ github.token }}
+          path: baseline
+      - name: Download update APK
+        uses: actions/download-artifact@v4
+        with:
+          name: the-word-test-apk
+          run-id: ${{ inputs.update_run || '46100201513' }}
+          github-token: ${{ github.token }}
+          path: update
+      - name: Prepare disposable test APKs
+        shell: bash
+        run: |
+          set -eu
+          tools="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          python3 - "$tools/aapt" <<'PY'
+          import re
+          import subprocess
+          import sys
+          def identity(path):
+              output = subprocess.check_output([sys.argv[1], "dump", "badging", path], text=True)
+              name, version = re.search(r"package: name='([^']+)' versionCode='(\d+)'", output).groups()
+              return name, int(version)
+          baseline, update = map(identity, ("baseline/app-debug.apk", "update/app-debug.apk"))
+          assert baseline[0] == update[0] == "com.example.theword.mobile", (baseline, update)
+          assert update[1] > baseline[1], (baseline, update)
+          print(f"Testing {baseline[0]} update from {baseline[1]} to {update[1]}")
+          PY
+          test_key="$RUNNER_TEMP/emulator-only.p12"
+          keytool -genkeypair -alias emulator -keyalg RSA -keysize 2048 -validity 7 \
+            -keystore "$test_key" -storetype PKCS12 -storepass emulator-only -dname "CN=Disposable emulator test"
+          for slot in baseline update; do
+            "$tools/apksigner" sign --ks "$test_key" --ks-pass pass:emulator-only \
+              --v4-signing-enabled false --out "$slot/test.apk" "$slot/app-debug.apk"
+            "$tools/apksigner" verify "$slot/test.apk"
+          done
+      - name: Enable KVM on the runner
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify install, app data retention, and launch
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install baseline/test.apk
+            adb shell 'run-as com.example.theword.mobile sh -c "echo retained > files-check.txt"'
+            adb install -r update/test.apk
+            adb shell run-as com.example.theword.mobile cat files-check.txt | tr -d '\r' | grep -x retained
+            adb shell am start -W -n com.example.theword.mobile/.MainActivity | grep -F 'Status: ok'
+            sleep 3
+            adb shell dumpsys activity activities | grep -E '(topResumedActivity|mResumedActivity).*com\.example\.theword\.mobile'
+            adb exec-out screencap -p > the-word-emulator.png
+      - name: Save launch screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: the-word-emulator-launch
+          path: the-word-emulator.png
+          if-no-files-found: error
+          retention-days: 7
