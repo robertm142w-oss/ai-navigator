@@ -15,6 +15,18 @@ permissions:
   contents: read
 jobs:
   build:
+    strategy:
+      matrix:
+        include:
+          - app_id: com.example.theword.mobile
+            app_label: The Word
+            artifact: the-word-test-apk
+          - app_id: com.example.theword.logopreview
+            app_label: The Word Logo Preview
+            artifact: the-word-logo-preview-apk
+    env:
+      WORD_APP_ID: ${{ matrix.app_id }}
+      WORD_APP_LABEL: ${{ matrix.app_label }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -31,10 +43,10 @@ jobs:
       - run: |
           npm init -y
           npm install --save-exact @capacitor/core@7.4.3 @capacitor/cli@7.4.3 @capacitor/android@7.4.3
-          npx cap init "The Word" com.example.theword.mobile --web-dir www
+          npx cap init "$WORD_APP_LABEL" "$WORD_APP_ID" --web-dir www
           npx cap add android
           npx cap sync android
-          python3 scripts/prepare-android.py com.example.theword.mobile
+          python3 scripts/prepare-android.py "$WORD_APP_ID"
           python3 - <<'PY'
           import os
           from pathlib import Path
@@ -53,8 +65,8 @@ jobs:
           apk=android/app/build/outputs/apk/debug/app-debug.apk
           build_tools="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
           "$build_tools/apksigner" verify --print-certs "$apk"
-          "$build_tools/aapt" dump badging "$apk" | grep -F "package: name='com.example.theword.mobile'"
-          "$build_tools/aapt" dump badging "$apk" | grep -F "application-label:'The Word'"
+          "$build_tools/aapt" dump badging "$apk" | grep -F "package: name='$WORD_APP_ID'"
+          "$build_tools/aapt" dump badging "$apk" | grep -F "application-label:'$WORD_APP_LABEL'"
           unzip -p "$apk" assets/public/index.html | cmp - www/index.html
           unzip -p "$apk" assets/public/assets/compass-emblem.webp | cmp - assets/compass-emblem.webp
           python3 - "$apk" <<'PY'
@@ -75,7 +87,7 @@ jobs:
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: the-word-test-apk
+          name: ${{ matrix.artifact }}
           retention-days: 7
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
