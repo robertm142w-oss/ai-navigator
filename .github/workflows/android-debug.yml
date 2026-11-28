@@ -30,10 +30,10 @@ jobs:
       - run: |
           npm init -y
           npm install --save-exact @capacitor/core@7.4.3 @capacitor/cli@7.4.3 @capacitor/android@7.4.3
-          npx cap init "The Word" com.example.ainavigator.test --web-dir www
+          npx cap init "The Word" com.example.theword.preview --web-dir www
           npx cap add android
           npx cap sync android
-          python3 scripts/prepare-android.py
+          python3 scripts/prepare-android.py com.example.theword.preview
       - run: |
           cd android
           chmod +x gradlew
@@ -43,7 +43,7 @@ jobs:
           apk=android/app/build/outputs/apk/debug/app-debug.apk
           build_tools="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
           "$build_tools/apksigner" verify --print-certs "$apk"
-          "$build_tools/aapt" dump badging "$apk" | grep -F "package: name='com.example.ainavigator.test'"
+          "$build_tools/aapt" dump badging "$apk" | grep -F "package: name='com.example.theword.preview'"
           "$build_tools/aapt" dump badging "$apk" | grep -F "application-label:'The Word'"
           unzip -p "$apk" assets/public/index.html | cmp - www/index.html
           python3 - "$apk" <<'PY'
