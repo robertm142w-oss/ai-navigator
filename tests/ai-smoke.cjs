@@ -120,6 +120,21 @@ async function test() {
     assert.equal(active, 0);
     assert.equal(JSON.parse(storage.get('ai-navigator-queue-v1')).at(-1).status, 'failed');
     assert.ok(!storage.has('ai-navigator-team-v1'));
+    const draftCode = '```js\nfunction example() { return 1; }\n```';
+    context.artifactDraft = draftCode;
+    assert.equal(evaluate('checkProposalRevision(artifactDraft, artifactDraft)'), null);
+    assert.match(evaluate('checkProposalRevision(artifactDraft, "Use a function.")'), /dropped the code/);
+    assert.match(evaluate('checkProposalRevision(artifactDraft, artifactDraft.slice(0, -3))'), /unclosed/);
+    const rejectedRevision = evaluate('sendMessage({proposal: true})');
+    for (const reply of ['Plan', draftCode, 'Review the tests', 'Use a function.']) {
+        workers.at(-1).onmessage({data: {reply}});
+        await new Promise(resolve => setImmediate(resolve));
+    }
+    await rejectedRevision;
+    assert.match(get('aiStatus').textContent, /Revision needs correction/);
+    assert.ok(!storage.has('ai-navigator-team-v1'));
+    const idle = [...timers.values()].find(timer => timer.delay === 30000);
+    idle?.callback();
     console.log('PASS: model consent, shared worker, proposal flow, memory, idle cleanup and cancellation');
 }
 

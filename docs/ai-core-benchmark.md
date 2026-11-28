@@ -31,3 +31,11 @@ Candidate evaluation order:
 1. Reuse the current ONNX model and test cases with the [ONNX Runtime Mobile usability checker](https://onnxruntime.ai/docs/tutorials/mobile/helpers/model-usability-checker.html). Measure quality, peak RAM, first-token latency and storage on Android against the existing WebView baseline.
 2. Compare native [llama.cpp Android examples](https://github.com/ggml-org/llama.cpp/blob/master/docs/android.md) with the same tasks and a license-checked small GGUF model. Profile the target phone before adding another backend.
 3. Use deterministic fixtures for incorrect arithmetic examples, empty responses, and lost runnable proposals. Keep fixture tests in the existing no-cost runner. Evaluate a portable local [Promptfoo configuration](https://github.com/openai/openai-cookbook/blob/main/examples/evaluation/moving-from-openai-evals-to-promptfoo.md) if the suite outgrows the existing Node runner.
+
+## Independent reviewer check
+
+Run `node scripts/benchmark-review.mjs <Transformers.js project> <local model root> [model id] [dtype]` with an existing Transformers.js installation and local model files. Downloads are disabled in this harness. The four fixtures compare the model's answer with a trusted arithmetic result and check the stated verdict. Output from the model is parsed as data and never executed.
+
+The cached Qwen2.5 Q4 model passed 1 of 4 isolated reviewer fixtures on the build computer. It approved an incorrect fixture whose claimed answer was 9 and whose actual result was 3. Model initialization took 5.84 seconds, examples took 1.05–4.91 seconds each, and peak process RAM was approximately 2.86 GiB. This is a CPU-host baseline, not a phone result.
+
+The app now holds revisions for correction when code from an earlier fenced example disappears or the final code block is left unclosed. Held revisions remain visible for review and are excluded from the saved proposal history. This is a structural check; correct code and correct expected values require independent task-specific tests.

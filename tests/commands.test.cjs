@@ -9,6 +9,7 @@ function loadCommands(plugins = {}) {
     const source = html.slice(start, html.indexOf('</script>', start));
     const elements = new Map();
     const requests = [];
+    const requestsText = [];
     let active = false;
     let shared;
     const context = vm.createContext({
@@ -33,14 +34,14 @@ function loadCommands(plugins = {}) {
         stopTracking: () => { active = false; },
         resetInference: () => {},
         cancelledMessage: 'AI stopped by owner.',
-        sendMessage: async options => { requests.push(options.proposal); }
+        sendMessage: async options => { requests.push(options.proposal); requestsText.push(options.request); }
     });
     vm.runInContext(source, context);
     const run = async command => {
         elements.get('aiPrompt').value = command;
         await vm.runInContext('runCommand()', context);
     };
-    return { elements, requests, run, active: () => active, shared: () => shared };
+    return { elements, requests, requestsText, run, active: () => active, shared: () => shared };
 }
 
 test('local commands route ahead of the model and navigation stays paused', async () => {
@@ -101,4 +102,12 @@ test('camera and flashlight commands route directly to the device bridge', async
     await run('Flashlight off');
     assert.deepEqual(actions, ['camera', true, false]);
     assert.deepEqual(requests, []);
+});
+
+test('improve yourself sends a bounded core-improvement request to proposal mode', async () => {
+    const { requests, requestsText, run } = loadCommands();
+    await run('Improve yourself');
+    assert.deepEqual(requests, [true]);
+    assert.match(requestsText[0], /one small improvement/);
+    assert.match(requestsText[0], /keep approval controls intact/);
 });
