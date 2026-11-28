@@ -14,7 +14,7 @@ fs.mkdirSync(assets, {recursive:true});
 fs.copyFileSync(path.join(root, 'assets', 'compass-emblem.webp'), path.join(assets, 'compass-emblem.webp'));
 const modules = path.join(target, 'src');
 fs.mkdirSync(modules, {recursive:true});
-for (const file of ['device-pairing.js', 'lesson-sharing.js']) {
+for (const file of ['commander-workflow.js', 'device-pairing.js', 'lesson-sharing.js']) {
   fs.copyFileSync(path.join(root, 'src', file), path.join(modules, file));
 }
 console.log('Prepared www/index.html for Android packaging');

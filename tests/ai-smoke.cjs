@@ -21,7 +21,7 @@ const calls = [];
 const workers = [];
 const timers = new Map();
 let nextTimer = 0;
-const context = vm.createContext({
+const makeContext = () => vm.createContext({
     document: { getElementById: get },
     window: { addEventListener() {} },
     localStorage: {
@@ -45,11 +45,13 @@ const context = vm.createContext({
         }
         postMessage(data) {
             calls.push(data);
-            if (!pause) queueMicrotask(() => this.onmessage({ data: { reply: 'mock ' + calls.length } }));
+            const reply = data.role.startsWith('Commander:') ? '{"steps":["Mock plan"]}' : 'mock ' + calls.length;
+            if (!pause) queueMicrotask(() => this.onmessage({ data: { reply } }));
         }
         terminate() { active--; }
     },
 });
+let context;
 const evaluate = source => vm.runInContext(source, context);
 const owner = get('ownerEnable');
 const disable = () => {
@@ -57,8 +59,17 @@ const disable = () => {
     owner.onchange({ target: owner });
 };
 
+async function reload() {
+    context = makeContext();
+    context.commanderModule = await import('../src/commander-workflow.js');
+    evaluate(html.slice(start, scriptEnd));
+    evaluate('loadCommanderWorkflow = async () => commanderModule');
+}
+
+const flush = () => new Promise(resolve => setImmediate(resolve));
+
 async function test() {
-    vm.runInContext(html.slice(start, scriptEnd), context);
+    await reload();
     get('aiPrompt').value = 'Improve navigation';
     await evaluate('sendMessage({proposal: true})');
     assert.equal(calls.length, 0);
@@ -79,6 +90,7 @@ async function test() {
     assert.equal(peak, 1);
     assert.equal(active, 1);
     assert.equal(JSON.parse(storage.get('ai-navigator-team-v1')).length, 1);
+    assert.equal(JSON.parse(storage.get('ai-navigator-proposals-v1')).at(-1).state.revision, 'mock 4');
     const queue = JSON.parse(storage.get('ai-navigator-queue-v1'));
     assert.equal(queue.filter(item => item.status === 'completed').length, 4);
     assert.ok(queue.every(item => !Object.hasOwn(item, 'task') && !Object.hasOwn(item, 'result')));
@@ -91,6 +103,7 @@ async function test() {
     get('aiSend').disabled = false;
     get('clearMemory').onclick();
     assert.ok(!storage.has('ai-navigator-team-v1'));
+    assert.ok(!storage.has('ai-navigator-proposals-v1'));
 
     await evaluate('sendMessage()');
     assert.equal(calls.length, 5);
@@ -102,6 +115,7 @@ async function test() {
 
     pause = true;
     const pending = evaluate('sendMessage({proposal: true})');
+    await flush();
     assert.equal(workers.length, 2);
     assert.equal(active, 1);
     workers.at(-1).onmessage({data: {progress: 100}});
@@ -119,6 +133,7 @@ async function test() {
     assert.ok(!storage.has('ai-navigator-team-v1'));
     owner.checked = true;
     const blank = evaluate('sendMessage({proposal: true})');
+    await flush();
     workers.at(-1).onmessage({data: {reply: '   '}});
     await blank;
     assert.match(get('response').textContent, /empty reply/);
@@ -131,17 +146,19 @@ async function test() {
     assert.match(evaluate('checkProposalRevision(artifactDraft, "Use a function.")'), /dropped the code/);
     assert.match(evaluate('checkProposalRevision(artifactDraft, artifactDraft.slice(0, -3))'), /unclosed/);
     const rejectedRevision = evaluate('sendMessage({proposal: true})');
-    for (const reply of ['Plan', draftCode, 'Review the tests', 'Use a function.']) {
+    await flush();
+    for (const reply of ['{"steps":["Plan"]}', draftCode, 'Review the tests', 'Use a function.']) {
         workers.at(-1).onmessage({data: {reply}});
-        await new Promise(resolve => setImmediate(resolve));
+        await flush();
     }
     await rejectedRevision;
     assert.match(get('aiStatus').textContent, /Revision needs correction/);
     assert.ok(!storage.has('ai-navigator-team-v1'));
-    const wrongArithmetic = evaluate('sendMessage({proposal: true})');
-    for (const reply of ['Plan', 'Check: difference between 10 and 7 is 3', 'Review', 'Check: difference between 10 and 7 is 9']) {
+    const wrongArithmetic = evaluate('sendMessage({proposal: true, request: "Verify a difference"})');
+    await flush();
+    for (const reply of ['{"steps":["Plan"]}', 'Check: difference between 10 and 7 is 3', 'Review', 'Check: difference between 10 and 7 is 9']) {
         workers.at(-1).onmessage({data: {reply}});
-        await new Promise(resolve => setImmediate(resolve));
+        await flush();
     }
     await wrongArithmetic;
     assert.match(get('aiStatus').textContent, /Revision needs correction/);
@@ -149,7 +166,29 @@ async function test() {
     assert.ok(!storage.has('ai-navigator-team-v1'));
     const idle = [...timers.values()].find(timer => timer.delay === 30000);
     idle?.callback();
-    console.log('PASS: model consent, shared worker, proposal flow, memory, idle cleanup and cancellation');
+    const afterFailure = JSON.parse(storage.get('ai-navigator-proposals-v1')).at(-1).state;
+    assert.equal(afterFailure.review, 'Review');
+    assert.equal(Object.hasOwn(afterFailure, 'revision'), false);
+
+    const previousCalls = calls.length;
+    await reload();
+    owner.checked = false;
+    await evaluate('sendMessage({resume: true})');
+    assert.equal(calls.length, previousCalls);
+    owner.checked = true;
+    const resumed = evaluate('sendMessage({resume: true})');
+    await flush();
+    assert.equal(calls.length, previousCalls + 1);
+    assert.match(calls.at(-1).role, /revise/i);
+    assert.equal(JSON.parse(calls.at(-1).task).review, 'Review');
+    assert.equal(JSON.parse(calls.at(-1).task).proposal, 'Check: difference between 10 and 7 is 3');
+    workers.at(-1).onmessage({data: {reply: 'Check: difference between 10 and 7 is 3'}});
+    await resumed;
+    assert.match(get('aiStatus').textContent, /Awaiting your review/);
+    assert.equal(JSON.parse(storage.get('ai-navigator-proposals-v1')).at(-1).state.revision,
+        'Check: difference between 10 and 7 is 3');
+    evaluate('resetInference()');
+    console.log('PASS: model consent, shared worker, proposal flow, restart recovery, memory, idle cleanup and cancellation');
 }
 
 test().catch(error => {
