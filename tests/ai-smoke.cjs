@@ -188,6 +188,23 @@ async function test() {
     assert.equal(JSON.parse(storage.get('ai-navigator-proposals-v1')).at(-1).state.revision,
         'Check: difference between 10 and 7 is 3');
     evaluate('resetInference()');
+    const compact = get('compact-model');
+    pause = false;
+    compact.checked = false;
+    await evaluate('sendMessage({request: "Hello"})');
+    assert.equal(evaluate('aiWorkerDtype'), 'q4');
+    compact.checked = true;
+    const compactRun = evaluate('sendMessage({request: "Hello again"})');
+    assert.equal(compact.disabled, true);
+    await compactRun;
+    assert.equal(compact.disabled, false);
+    assert.equal(evaluate('aiWorkerDtype'), 'q8');
+    assert.equal(peak, 1);
+    disable();
+    const callsBeforeConsent = calls.length;
+    await evaluate('sendMessage({request: "No consent"})');
+    assert.equal(calls.length, callsBeforeConsent);
+    assert.equal(active, 0);
     console.log('PASS: model consent, shared worker, proposal flow, restart recovery, memory, idle cleanup and cancellation');
 }
 

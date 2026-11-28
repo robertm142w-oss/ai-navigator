@@ -275,7 +275,8 @@
             <label class="check-label"><input type="checkbox" id="speech-enable" checked> Read replies aloud</label>
             <label class="check-label"><input type="checkbox" id="wake-on-launch"> Listen for “Hey The Word” once when I open the app</label>
             <p class="hint">Wake phrase testing uses a short microphone session while the app is open. Use Stop listening to end it early.</p>
-            <p class="hint">The optional AI model downloads about 786 MB on first use. AI code proposals require review.</p>
+            <label class="check-label"><input type="checkbox" id="compact-model"> Try smaller model download (experimental)</label>
+            <p class="hint">The standard model file is about 786 MB. The experimental file is about 512 MB. AI code proposals require review.</p>
             <div class="appearance">
                 <label class="label" for="appearance-theme">Appearance</label>
                 <select id="appearance-theme">
@@ -477,6 +478,8 @@
         function writeQueue(q){try{localStorage.setItem(queueKey,JSON.stringify(q.slice(-60)));renderQueue()}catch{}}
         writeQueue(readQueue().map(t=>['running','retrying','queued'].includes(t.status)?{...t,status:'interrupted'}:t));
         let aiWorker;
+        let aiWorkerDtype;
+        const compactModel = document.getElementById('compact-model');
         let currentInference;
         let modelIdleTimer;
         let proposalRun;
@@ -487,6 +490,7 @@
             clearTimeout(modelIdleTimer);
             aiWorker?.terminate();
             aiWorker = undefined;
+            aiWorkerDtype = undefined;
             if (currentInference) finishInference(error || new Error(cancelledMessage));
         }
 
@@ -511,7 +515,7 @@
 
         window.addEventListener('pagehide', () => resetInference(new Error(cancelledMessage)));
 
-        function createInferenceWorker() {
+        function createInferenceWorker(dtype) {
             const source = `
                 let model;
                 self.onmessage = async ({data}) => {
@@ -521,7 +525,7 @@
                             env.allowLocalModels = false;
                             env.backends.onnx.wasm.numThreads = 1;
                             model = await pipeline('text-generation','onnx-community/Qwen2.5-0.5B-Instruct',{
-                                device:'wasm',dtype:'q4',
+                                device:'wasm',dtype:${JSON.stringify(dtype)},
                                 progress_callback:p=>{if(p.status==='progress') self.postMessage({progress:Math.round(p.progress||0)});}
                             });
                         }
@@ -563,7 +567,12 @@
                     return;
                 }
                 clearTimeout(modelIdleTimer);
-                aiWorker ||= createInferenceWorker();
+                const dtype = compactModel.checked ? 'q8' : 'q4';
+                if (aiWorker && aiWorkerDtype !== dtype) resetInference();
+                if (!aiWorker) {
+                    aiWorker = createInferenceWorker(dtype);
+                    aiWorkerDtype = dtype;
+                }
                 const timeout = setTimeout(() => resetInference(new Error('Local AI timed out.')), 180000);
                 currentInference = {resolve, reject, progress, timeout};
                 try {
@@ -774,6 +783,7 @@
             if (!options.resume && !prompt) { aiStatus.textContent = 'Enter a question in the AI prompt box first.'; return; }
             aiStatus.textContent = 'AI working…';
             button.disabled = true;
+            compactModel.disabled = true;
             const startedAt = Date.now();
             try {
                 if (options.resume || options.proposal || document.getElementById('teamMode')?.checked) {
@@ -797,6 +807,7 @@
             } finally {
                 lastAIRequestMs = Date.now() - startedAt;
                 button.disabled = false;
+                compactModel.disabled = false;
             }
         }
         const commandInput = document.getElementById('aiPrompt');
