@@ -116,7 +116,7 @@
         body[data-voice-state="speaking"] .emblem-orbit { opacity: 1; }
 
         @media (prefers-reduced-motion: no-preference) {
-            .emblem { animation: emblem-enter 720ms ease-out; }
+            .hero[data-intro] .emblem { animation: emblem-enter 1450ms ease-out both; }
             #word-emblem[data-spinning] { animation: arrow-tribute 950ms cubic-bezier(.12,.79,.25,1); }
             @keyframes arrow-tribute {
                 0% { transform: rotate(0) scale(1); }
@@ -124,15 +124,14 @@
                 78% { transform: rotate(1092deg) scale(.98); }
                 100% { transform: rotate(1080deg) scale(1); }
             }
-            .emblem-orbit {
-                animation: emblem-orbit-enter 720ms ease-out;
+            .hero[data-intro] .emblem-orbit {
+                animation: emblem-orbit-enter 1450ms ease-out;
                 transform-box: fill-box;
                 transform-origin: center;
             }
-            .hero h1, .hero p {
-                animation: word-title-settle 245ms cubic-bezier(.2,.78,.24,1) 650ms backwards;
+            .hero[data-intro] h1, .hero[data-intro] h1 + p {
+                animation: word-title-settle 350ms cubic-bezier(.2,.78,.24,1) 1050ms backwards;
             }
-            .hero p { animation-delay: 685ms; }
             @keyframes emblem-orbit-enter {
                 0% { opacity: 0; transform: scale(.83) rotate(-26deg); }
                 35% { opacity: .88; transform: scale(.98) rotate(-8deg); }
@@ -145,9 +144,9 @@
             }
             @keyframes emblem-enter {
                 /* Potential: the compass first appears in an unaligned position. */
-                0% { opacity: .45; transform: scale(.94) rotate(-6deg); }
+                0% { opacity: .45; transform: scale(.76) rotate(-38deg); }
                 /* Interaction: it turns toward its heading. */
-                30% { opacity: .8; transform: scale(.98) rotate(4deg); }
+                30% { opacity: .8; transform: scale(.96) rotate(13deg); }
                 /* Experience: it settles toward the heading it has found. */
                 68% { opacity: 1; transform: scale(1.02) rotate(-1deg); }
                 /* Self-awareness: the compass is upright and still. */
@@ -240,6 +239,7 @@
             <h1>The Word</h1>
             <p>Life Navigation</p>
             <p class="hint" id="emblem-help">Tap the logo to speak, hold for controls, or swipe up to spin it.</p>
+            <button type="button" id="replay-intro" hidden>Replay opening animation</button>
         </header>
 
         <section class="surface" aria-labelledby="reply-heading">
@@ -1188,6 +1188,26 @@
         let wakeCancelled = false;
         let activeRecognizer;
         const emblemButton = document.getElementById('word-emblem');
+        const replayIntro = document.getElementById('replay-intro');
+        const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+        function syncMotionPreference() {
+            replayIntro.hidden = !!reducedMotion?.matches;
+            document.getElementById('emblem-help').textContent = reducedMotion?.matches
+                ? 'Tap the logo to speak or hold for controls. Your device has reduced motion enabled.'
+                : 'Tap the logo to speak, hold for controls, or swipe up to spin it.';
+        }
+        function playIntro() {
+            if (reducedMotion?.matches) return;
+            const hero = emblemButton.parentElement;
+            delete hero.dataset.intro;
+            window.requestAnimationFrame(() => {
+                window.requestAnimationFrame(() => { hero.dataset.intro = ''; });
+            });
+        }
+        syncMotionPreference();
+        reducedMotion?.addEventListener?.('change', syncMotionPreference);
+        replayIntro.addEventListener('click', playIntro);
+        window.addEventListener?.('load', playIntro, {once: true});
         let emblemPress;
         let suppressEmblemClick = false;
 
@@ -1215,7 +1235,7 @@
             const movedAway = moved || Math.hypot(sideways, rise) > 12;
             const held = !movedAway && event.timeStamp - time >= 550;
             suppressEmblemClick = movedAway || held;
-            if (swipeUp && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+            if (swipeUp && !reducedMotion?.matches) {
                 emblemButton.dataset.spinning = '';
             }
             if (held) openPermissions();
