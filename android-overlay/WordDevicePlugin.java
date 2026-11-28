@@ -2,11 +2,13 @@ package com.example.ainavigator.device;
 
 import android.Manifest;
 import android.app.ActivityManager;
+import android.app.ApplicationExitInfo;
 import android.content.Intent;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.provider.MediaStore;
+import android.os.Build;
 import android.provider.CalendarContract;
 
 import com.getcapacitor.JSObject;
@@ -49,7 +51,39 @@ public class WordDevicePlugin extends Plugin {
         activityManager.getMemoryInfo(memory);
         JSObject status = new JSObject();
         status.put("lowMemory", memory.lowMemory);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                String packageName = getContext().getPackageName();
+                for (ApplicationExitInfo exit : activityManager.getHistoricalProcessExitReasons(packageName, 0, 10)) {
+                    if (!packageName.equals(exit.getProcessName())) continue;
+                    status.put("lastExitReason", exitReason(exit.getReason()));
+                    status.put("lastExitTime", exit.getTimestamp());
+                    break;
+                }
+            } catch (RuntimeException ignored) {
+                // A missing history record should not prevent memory diagnostics.
+            }
+        }
         call.resolve(status);
+    }
+
+    private String exitReason(int reason) {
+        switch (reason) {
+            case ApplicationExitInfo.REASON_CRASH:
+                return "Android recorded an app crash";
+            case ApplicationExitInfo.REASON_CRASH_NATIVE:
+                return "Android recorded a native crash";
+            case ApplicationExitInfo.REASON_LOW_MEMORY:
+                return "Android ended the process due to low memory";
+            case ApplicationExitInfo.REASON_ANR:
+                return "Android ended a nonresponsive app process";
+            case ApplicationExitInfo.REASON_USER_REQUESTED:
+                return "Android recorded a user-requested stop";
+            case ApplicationExitInfo.REASON_EXIT_SELF:
+                return "The app process exited";
+            default:
+                return "Android exit reason code " + reason;
+        }
     }
 
     @PluginMethod

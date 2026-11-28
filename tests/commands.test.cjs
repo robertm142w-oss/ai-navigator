@@ -148,11 +148,16 @@ test('calendar commands open an editor with just the user-supplied title', async
 
 test('diagnostics show native memory pressure separately from elapsed AI request time', async () => {
     const { elements, requests, run } = loadCommands({
-        WordDevice: { memoryStatus: async () => ({lowMemory: true}) }
+        WordDevice: { memoryStatus: async () => ({
+            lowMemory: true,
+            lastExitReason: 'Android recorded an app crash',
+            lastExitTime: 1795835857000
+        }) }
     });
     await run('Show diagnostics');
     assert.match(elements.get('response').textContent, /Android reports memory pressure/);
     assert.match(elements.get('response').textContent, /Last AI request time: 1.3 s/);
+    assert.match(elements.get('response').textContent, /Most recent recorded app process exit: Android recorded an app crash at/);
     assert.deepEqual(requests, []);
 });
 

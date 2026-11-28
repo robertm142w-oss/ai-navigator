@@ -682,8 +682,12 @@
             }
             if (/^(show )?(diagnostics|voice diagnostics)$/.test(name)) {
                 let memoryStatus = 'unavailable';
+                let exitStatus = 'No Android process exit record available';
                 try {
                     const memory = await deviceTools?.memoryStatus();
+                    if (memory?.lastExitReason && Number.isFinite(memory.lastExitTime)) {
+                        exitStatus = memory.lastExitReason + ' at ' + new Date(memory.lastExitTime).toLocaleString();
+                    }
                     if (memory && typeof memory.lowMemory === 'boolean') {
                         memoryStatus = memory.lowMemory ? 'Android reports memory pressure' : 'Android reports no memory pressure';
                     }
@@ -695,6 +699,7 @@
                     'Camera and flashlight bridge: ' + (deviceTools ? 'available' : 'unavailable'),
                     'Last voice result: ' + lastVoiceResult,
                     'System memory: ' + memoryStatus,
+                    'Most recent recorded app process exit: ' + exitStatus,
                     'Last AI request time: ' + (lastAIRequestMs === null ? 'not measured' : (lastAIRequestMs / 1000).toFixed(1) + ' s'),
                     'Take a screenshot of this panel and attach it in ChatGPT to share it.'
                 ].join('\n'));
