@@ -78,7 +78,7 @@ public class MainActivity extends BridgeActivity {{
             default.unlink()
 
     permissions = {element.get(ANDROID_NAME) for element in root.findall("uses-permission")}
-    for permission in ("RECORD_AUDIO", "ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "CAMERA"):
+    for permission in ("RECORD_AUDIO", "CAMERA"):
         name = f"android.permission.{permission}"
         if name not in permissions:
             ET.SubElement(root, "uses-permission", {ANDROID_NAME: name})

@@ -43,7 +43,7 @@ function loadCommands(plugins = {}) {
     return { elements, requests, run, active: () => active, shared: () => shared };
 }
 
-test('local commands route ahead of model and validate coordinates', async () => {
+test('local commands route ahead of the model and navigation stays paused', async () => {
     const { elements, requests, run, active } = loadCommands();
     await run('Open settings');
     assert.equal(elements.get('owner-settings').open, true);
@@ -51,12 +51,9 @@ test('local commands route ahead of model and validate coordinates', async () =>
     assert.equal(elements.get('queue-panel').open, true);
     await run('Reflect on a conversation');
     assert.match(elements.get('response').textContent, /someone else/);
-    await run('Navigate to 45x, -122');
-    assert.equal(active(), false);
     await run('Navigate to 45.52 comma minus 122.68');
-    assert.equal(active(), true);
-    await run('Stop navigation');
     assert.equal(active(), false);
+    assert.match(elements.get('response').textContent, /Navigation is paused/);
     assert.deepEqual(requests, []);
     await run('Propose an improvement: shorten the task summaries');
     await run('Tell me a story');

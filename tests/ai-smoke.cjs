@@ -112,6 +112,14 @@ async function test() {
     assert.match(get('response').textContent, /AI stopped by owner/);
     assert.equal(JSON.parse(storage.get('ai-navigator-queue-v1')).at(-1).status, 'interrupted');
     assert.ok(!storage.has('ai-navigator-team-v1'));
+    owner.checked = true;
+    const blank = evaluate('sendMessage({proposal: true})');
+    workers.at(-1).onmessage({data: {reply: '   '}});
+    await blank;
+    assert.match(get('response').textContent, /empty reply/);
+    assert.equal(active, 0);
+    assert.equal(JSON.parse(storage.get('ai-navigator-queue-v1')).at(-1).status, 'failed');
+    assert.ok(!storage.has('ai-navigator-team-v1'));
     console.log('PASS: model consent, shared worker, proposal flow, memory, idle cleanup and cancellation');
 }
 

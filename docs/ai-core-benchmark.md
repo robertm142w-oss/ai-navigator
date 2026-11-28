@@ -21,3 +21,13 @@ The evaluation asked for absolute difference between two finite numbers. The ini
 - Use standard runners in the public repository and seven-day artifact retention. The repository had 35 unexpired artifacts totaling 88.8 MB on November 27, 2026. Account-wide storage and usage balances are unknown. Preserve downloadable checkpoints independently before an artifact expires. [GitHub Actions billing](https://docs.github.com/en/actions/concepts/billing-and-usage)
 - Reuse installed Android speech services. Verify speech language availability, permissions and on-device responsiveness on the Galaxy A17.
 - The recovered Python prototype exercises an owner-disabled provider allowlist and fallback if a provider reports unavailable. Use those behaviors as a reference for a second verified backend. The prototype providers are mocks.
+
+## AI-first development pass
+
+Navigation controls and native location permission are paused. The existing coordinate math and tests are retained. The recovered AI Navigator Python core's four tests passed. Its policy rejects empty provider output and only uses owner-approved providers. The app now rejects empty local model replies before advancing the proposal or saving it.
+
+Candidate evaluation order:
+
+1. Reuse the current ONNX model and test cases with the [ONNX Runtime Mobile usability checker](https://onnxruntime.ai/docs/tutorials/mobile/helpers/model-usability-checker.html). Measure quality, peak RAM, first-token latency and storage on Android against the existing WebView baseline.
+2. Compare native [llama.cpp Android examples](https://github.com/ggml-org/llama.cpp/blob/master/docs/android.md) with the same tasks and a license-checked small GGUF model. Profile the target phone before adding another backend.
+3. Use deterministic fixtures for incorrect arithmetic examples, empty responses, and lost runnable proposals. Keep fixture tests in the existing no-cost runner. Evaluate a portable local [Promptfoo configuration](https://github.com/openai/openai-cookbook/blob/main/examples/evaluation/moving-from-openai-evals-to-promptfoo.md) if the suite outgrows the existing Node runner.

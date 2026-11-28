@@ -218,7 +218,7 @@
             <button type="button" id="share-reply" hidden>Open share sheet</button>
         </section>
 
-        <section class="surface" id="nav-panel" aria-labelledby="navigation-heading" hidden>
+        <section class="surface" id="nav-panel" aria-labelledby="navigation-heading" hidden inert>
             <h2 id="navigation-heading">Navigation</h2>
             <div id="stale-warning" class="stale-warning" role="status">Location update is stale.</div>
             <div id="scene" aria-hidden="true">
@@ -449,7 +449,10 @@
                 if (aiWorker !== worker || !currentInference) return;
                 if (typeof data.progress === 'number') currentInference.progress(data.progress);
                 else if (typeof data.error === 'string') resetInference(new Error(data.error));
-                else if (typeof data.reply === 'string') finishInference(null, data.reply);
+                else if (typeof data.reply === 'string') {
+                    if (data.reply.replaceAll('\u0000', '').trim()) finishInference(null, data.reply);
+                    else resetInference(new Error('The local model returned an empty reply.'));
+                }
             };
             worker.onerror = event => {
                 if (aiWorker === worker) resetInference(new Error(event.message || 'Local AI failed'));
@@ -583,7 +586,6 @@
         const speechEnabled = document.getElementById('speech-enable');
         const settingsPanel = document.getElementById('owner-settings');
         const queuePanel = document.getElementById('queue-panel');
-        const navigationPanel = document.getElementById('nav-panel');
         const voice = window.Capacitor?.Plugins?.WordVoice;
         const nativeShare = window.Capacitor?.Plugins?.WordShare;
         const deviceTools = window.Capacitor?.Plugins?.WordDevice;
@@ -661,7 +663,7 @@
                 return;
             }
             if (/^(help|commands|what can you do)$/.test(name)) {
-                displayReply('Try “Show diagnostics”, “Open permissions”, “Open camera”, “Flashlight on”, “Show task queue”, “Share reply”, “Navigate to 45.52, -122.68”, “Stop navigation”, “Reflect on a decision”, or “Propose an improvement: make task summaries shorter”.');
+                displayReply('Try “Show diagnostics”, “Open permissions”, “Open camera”, “Flashlight on”, “Show task queue”, “Share reply”, “Reflect on a decision”, or “Propose an improvement: make task summaries shorter”.');
                 return;
             }
             if (/^(open |show )?(settings|owner controls|permissions)$/.test(name)) {
@@ -678,13 +680,7 @@
             if (/^(show )?(status|ai status|core status)$/.test(name)) {
                 const aiAllowed = document.getElementById('ownerEnable').checked;
                 displayReply('AI model access is ' + (aiAllowed ? 'enabled' : 'disabled') +
-                    '. Navigation is ' + (watchId === null ? 'idle' : 'active') + '.');
-                return;
-            }
-            if (/^(show|open) navigation$/.test(name)) {
-                navigationPanel.hidden = false;
-                navigationPanel.scrollIntoView({block: 'nearest'});
-                displayReply('Navigation opened. Enter your destination coordinates to start.');
+                    '. Navigation is paused while we work on the AI core.');
                 return;
             }
             if (/^(?:share|send) (?:this |the )?reply$/.test(name)) {
@@ -706,22 +702,8 @@
                 commandStatus.textContent = 'AI stopped.';
                 return;
             }
-            if (/^(stop|end|cancel) navigation$/.test(name)) {
-                stopTracking();
-                displayReply('Navigation stopped.');
-                return;
-            }
-            const route = command.match(/^(?:navigate to|go to|start navigation to)\s+(.+)$/i);
-            if (route) {
-                const coordinates = route[1].replace(/\s+comma\s+/ig, ', ').replace(/\bminus\s+/ig, '-');
-                if (!parseDest(coordinates)) {
-                    displayReply('Give me a destination as latitude and longitude. Try “Navigate to 45.52, -122.68”.');
-                    return;
-                }
-                document.getElementById('userInput').value = coordinates;
-                navigationPanel.hidden = false;
-                await startTracking();
-                displayReply('Pointing toward ' + coordinates + '. Use the arrow for direction to the coordinates.');
+            if (/^(?:(?:(?:show|open|start|stop|end|cancel) )?navigation\b|navigate to\b|go to\b)/.test(name)) {
+                displayReply('Navigation is paused while we work on the AI core.');
                 return;
             }
             if (/^reflect(?:\s|$)/i.test(command)) {
