@@ -201,6 +201,8 @@
             <label class="check-label"><input type="checkbox" id="ownerEnable"> Allow AI model download and local processing</label>
             <label class="check-label"><input type="checkbox" id="teamMode"> Development team mode</label>
             <label class="check-label"><input type="checkbox" id="speech-enable" checked> Read replies aloud</label>
+            <label class="check-label"><input type="checkbox" id="wake-on-launch"> Listen for “Hey The Word” once when I open the app</label>
+            <p class="hint">Wake phrase testing uses a short microphone session while the app is open. Use Stop listening to end it early.</p>
             <p class="hint">The optional AI model downloads about 786 MB on first use. AI code proposals require review.</p>
             <div class="actions">
                 <button type="button" id="clearMemory">Clear team memory</button>
@@ -225,6 +227,8 @@
                     <span>Speak</span>
                 </button>
                 <button type="button" id="aiSend">Send</button>
+                <button type="button" id="wake-test">Try “Hey The Word”</button>
+                <button type="button" id="wake-stop" hidden>Stop listening</button>
                 <button type="button" id="stop-ai" hidden>Stop AI</button>
             </div>
             <p class="hint" id="command-hint">Try “Hello,” “Open camera,” or “Show diagnostics.”</p>
@@ -799,12 +803,44 @@
 
         let listening = false;
         let lastVoiceResult = 'No attempt yet';
-        microphone.addEventListener('click', async () => {
+        const wakeTest = document.getElementById('wake-test');
+        const wakeStop = document.getElementById('wake-stop');
+        const wakeOnLaunch = document.getElementById('wake-on-launch');
+        const wakeSetting = 'the-word-wake-on-launch';
+        try { wakeOnLaunch.checked = localStorage.getItem(wakeSetting) === 'yes'; }
+        catch { wakeOnLaunch.checked = false; }
+        wakeOnLaunch.disabled = !voice;
+        wakeOnLaunch.addEventListener('change', () => {
+            try { localStorage.setItem(wakeSetting, wakeOnLaunch.checked ? 'yes' : 'no'); }
+            catch { commandStatus.textContent = 'Could not save the wake phrase preference.'; }
+        });
+        window.addEventListener?.('load', () => {
+            if (wakeOnLaunch.checked && voice) listenForCommand(true);
+        }, {once: true});
+        let wakeCancelled = false;
+        wakeTest.addEventListener('click', () => listenForCommand(true));
+        microphone.addEventListener('click', () => listenForCommand(false));
+        wakeStop.addEventListener('click', async () => {
+            wakeCancelled = true;
+            wakeStop.disabled = true;
+            try { await voice?.stop(); }
+            catch { commandStatus.textContent = 'The microphone could not be stopped immediately.'; }
+        });
+
+        async function listenForCommand(wakeMode) {
             if (listening) return;
+            if (wakeMode && !voice) {
+                commandStatus.textContent = 'The wake phrase test requires on-device Android speech.';
+                return;
+            }
             listening = true;
+            wakeCancelled = false;
             microphone.disabled = true;
+            wakeTest.disabled = true;
+            wakeStop.hidden = !wakeMode;
+            wakeStop.disabled = false;
             window.speechSynthesis?.cancel();
-            commandStatus.textContent = 'Listening…';
+            commandStatus.textContent = wakeMode ? 'Say “Hey The Word,” then your command.' : 'Listening…';
             document.body.dataset.voiceState = 'listening';
             microphone.setAttribute('aria-pressed', 'true');
             let recognized = false;
@@ -812,6 +848,7 @@
                 let text;
                 if (voice) {
                     await voice.stop();
+                    if (wakeCancelled) throw new Error('Listening stopped.');
                     ({ text } = await voice.listen());
                 } else {
                     if (!recognitionClass) throw new Error('Voice input is unavailable here. Type or use your keyboard microphone.');
@@ -826,21 +863,39 @@
                         recognizer.start();
                     });
                 }
+                if (wakeCancelled) throw new Error('Listening stopped.');
+                if (wakeMode) {
+                    const wake = text?.trim().match(/^hey[ ,]+the[ ,]+word(?:[ ,.!?:]+|$)(.*)$/i);
+                    if (!wake) {
+                        commandStatus.textContent = 'Say “Hey The Word” at the start of your command.';
+                        lastVoiceResult = 'Wake phrase not heard';
+                        return;
+                    }
+                    text = wake[1].trim();
+                    if (!text) {
+                        commandStatus.textContent = 'I heard “Hey The Word.” Say your command.';
+                        ({ text } = await voice.listen());
+                    }
+                    if (wakeCancelled) throw new Error('Listening stopped.');
+                }
                 if (!text?.trim()) throw new Error('No speech detected. Try again or type.');
                 commandInput.value = text;
                 lastVoiceResult = 'Speech recognized and submitted';
                 recognized = true;
             } catch (error) {
                 lastVoiceResult = error.code || 'No usable speech';
-                commandStatus.textContent = (error.message || 'Voice input is unavailable.') + ' You can also use the microphone on your Samsung keyboard.';
+                commandStatus.textContent = wakeCancelled ? 'Listening stopped.' :
+                    (error.message || 'Voice input is unavailable.') + ' You can also use your keyboard microphone.';
             } finally {
                 listening = false;
                 microphone.disabled = false;
+                wakeTest.disabled = false;
+                wakeStop.hidden = true;
                 delete document.body.dataset.voiceState;
                 microphone.setAttribute('aria-pressed', 'false');
             }
             if (recognized) await runCommand();
-        });
+        }
 
         commandButton.addEventListener('click', runCommand);
         commandInput.addEventListener('keydown', event => {

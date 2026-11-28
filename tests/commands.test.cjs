@@ -155,3 +155,19 @@ test('diagnostics show native memory pressure separately from elapsed AI request
     assert.match(elements.get('response').textContent, /Last AI request time: 1.3 s/);
     assert.deepEqual(requests, []);
 });
+
+test('wake phrase test only dispatches commands addressed to The Word', async () => {
+    const speech = ['Open camera', 'Hey The Word, open camera', 'Hey The Word', 'Open camera'];
+    let opens = 0;
+    const { elements } = loadCommands({
+        WordVoice: { stop: async () => {}, listen: async () => ({text: speech.shift()}) },
+        WordDevice: { openCamera: async () => { opens++; } }
+    });
+    await elements.get('wake-test').click();
+    assert.equal(opens, 0);
+    assert.match(elements.get('aiStatus').textContent, /at the start/);
+    await elements.get('wake-test').click();
+    await elements.get('wake-test').click();
+    assert.equal(opens, 2);
+    assert.equal(elements.get('wake-stop').hidden, true);
+});
