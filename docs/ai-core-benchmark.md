@@ -39,3 +39,15 @@ Run `node scripts/benchmark-review.mjs <Transformers.js project> <local model ro
 The cached Qwen2.5 Q4 model passed 1 of 4 isolated reviewer fixtures on the build computer. It approved an incorrect fixture whose claimed answer was 9 and whose actual result was 3. Model initialization took 5.84 seconds, examples took 1.05–4.91 seconds each, and peak process RAM was approximately 2.86 GiB. This is a CPU-host baseline, not a phone result.
 
 The app now holds revisions for correction when code from an earlier fenced example disappears or the final code block is left unclosed. Held revisions remain visible for review and are excluded from the saved proposal history. This is a structural check; correct code and correct expected values require independent task-specific tests.
+
+### Replacement candidates on the same fixtures
+
+| Local model | Model bytes | Passed | Cold model load | Peak host RSS |
+| --- | ---: | ---: | ---: | ---: |
+| Qwen2.5-0.5B-Instruct ONNX Q4 | 786,156,820 | 1/4 | 5.56 s | 2.86 GiB |
+| Qwen2.5-Coder-0.5B-Instruct ONNX int8 | 639,402,903 | 1/4 | 2.09 s | 1.40 GiB |
+| SmolLM2-360M-Instruct ONNX Q4 | 387,943,246 | 0/4 | 1.84 s | 1.15 GiB |
+
+The Coder checkpoint was pinned to `604bb1988ff789d5024d589c63cf9ae81c0c8ab5`, with weights SHA-256 `cb62cac8484892079798a70b791d9f1b178735e0456e904011cce52ecd3c8787`. The SmolLM2 checkpoint was pinned to `a10cc1512eabd3dde888204e902eca88bddb4951`, with weights SHA-256 `a4ffda96e65beafc6f6cef0cbcf9fdc1cbdd79c230906bf3897d190547c7a596`. Both hashes matched the publishers' linked asset metadata.
+
+These four fixtures are a screening test, not a broad ranking. Neither replacement improved correctness on this test. Leave the app's default in place and use independent checks for claims that can be calculated or otherwise verified. Test any future candidate on the target device before changing the release model.
